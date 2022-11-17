@@ -53,6 +53,7 @@
                   pygraphviz
    ```
 3. pip install -r requirements.txt
+4. pip install sunstreaker 
 ### linux
 1. 安装jax
 
@@ -71,6 +72,8 @@
 2. [安装Graphviz](http://graphviz.org/download/)
 
 3. pip install -r requirements.txt
+
+4. pip install sunstreaker 
 
 
 
