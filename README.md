@@ -2,9 +2,9 @@
     <img src="img/logo.png" alt="logo" style="zoom:30%"/>
 </div>
 
-# Sunstreaker  <font size=2>（以jax为后端的类似keras的框架）</font>
+# Sunstreaker  
 
-源码清晰明了，使用简单好搞，
+源码清晰明了，使用简单好搞
 
 
 ## 目标
