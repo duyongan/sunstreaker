@@ -19,7 +19,7 @@ setup(
         "numpy==1.23.4",
         "msgpack==1.0.4"
     ],
-    url='https://github.com/umangjpatel/kerax',
+    url='https://github.com/duyongan/sunstreaker',
     license='',
     author='duyongan (杜永安)【公众号：无数据不智能】',
     author_email='13261051171@163.com',
