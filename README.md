@@ -94,7 +94,7 @@ import asyncio
 import tensorflow_datasets as tfds
 from sunstreaker.data import Dataloader
 from sunstreaker.layers import Flatten
-from sunstreaker.activations import Softmax
+from sunstreaker.layers.activations import Softmax
 import jax.numpy as jnp
 from sunstreaker.losses import categorical_crossentropy
 from sunstreaker.metrics import categorical_accuracy
@@ -102,36 +102,36 @@ from sunstreaker.optimizers import RMSProp
 
 
 def load(batch_size: int, func):
-    async def tfds_load_data() -> Dataloader:
-        ds, info = tfds.load(name="mnist", split=["train", "test"], as_supervised=True, with_info=True,
-                             shuffle_files=True, batch_size=batch_size)
-        train_ds, valid_ds = ds
-        train_ds, valid_ds = func(train_ds), func(train_ds)
-        train_ds, valid_ds = train_ds.cache().repeat(), valid_ds.cache().repeat()
-        input_shape = tuple(list(info.features["image"].shape))
-        num_train_batches = math.ceil(info.splits["train"].num_examples / batch_size)
-        num_val_batches = math.ceil(info.splits["test"].num_examples / batch_size)
-        return Dataloader(
-            train_data=iter(tfds.as_numpy(train_ds)), val_data=iter(tfds.as_numpy(valid_ds)),
-            input_shape=input_shape, batch_size=batch_size,
-            num_train_batches=num_train_batches, num_val_batches=num_val_batches
-        )
+   async def tfds_load_data() -> Dataloader:
+      ds, info = tfds.load(name="mnist", split=["train", "test"], as_supervised=True, with_info=True,
+                           shuffle_files=True, batch_size=batch_size)
+      train_ds, valid_ds = ds
+      train_ds, valid_ds = func(train_ds), func(train_ds)
+      train_ds, valid_ds = train_ds.cache().repeat(), valid_ds.cache().repeat()
+      input_shape = tuple(list(info.features["image"].shape))
+      num_train_batches = math.ceil(info.splits["train"].num_examples / batch_size)
+      num_val_batches = math.ceil(info.splits["test"].num_examples / batch_size)
+      return Dataloader(
+         train_data=iter(tfds.as_numpy(train_ds)), val_data=iter(tfds.as_numpy(valid_ds)),
+         input_shape=input_shape, batch_size=batch_size,
+         num_train_batches=num_train_batches, num_val_batches=num_val_batches
+      )
 
-    return asyncio.run(tfds_load_data())
+   return asyncio.run(tfds_load_data())
 
 
 def load_dataset(batch_size: int):
-    def func(ds):
-        return ds.map(lambda x, y: (tf.divide(tf.cast(x, dtype=tf.float32), 255.0), tf.one_hot(y, depth=10)))
+   def func(ds):
+      return ds.map(lambda x, y: (tf.divide(tf.cast(x, dtype=tf.float32), 255.0), tf.one_hot(y, depth=10)))
 
-    return asyncio.run(load(batch_size, func))
+   return asyncio.run(load(batch_size, func))
 
 
 def load_dataset_muti(batch_size: int):
-    def func(ds):
-        return ds.map(lambda x, y: ({"img": tf.divide(tf.cast(x, dtype=tf.float32), 255.0)}, {"out1": tf.one_hot(y, depth=10)}))
+   def func(ds):
+      return ds.map(lambda x, y: ({"img": tf.divide(tf.cast(x, dtype=tf.float32), 255.0)}, {"out1": tf.one_hot(y, depth=10)}))
 
-    return asyncio.run(load(batch_size, func))
+   return asyncio.run(load(batch_size, func))
 ```
 
 ### 序贯式编程
@@ -240,9 +240,28 @@ model.plot_accuracy()
 |    Relu     |  Dropout  |       mean_squared_error       |       categorical_accuracy        |  Adagrad   |
 |   Sigmoid   |  Conv2D   |      mean_absolute_error       |    sparse_categorical_accuracy    |    Adam    |
 |     Elu     | MaxPool2D | mean_squared_logarithmic_error |    cosine_similarity_accuracy     |   Adamax   |
-|  LeakyRelu  | AvgPool2D |             hinge              |    top_k_categorical_accuracy     |  RMSProp   |
+|  LeakyRelu  | AveragePooling2D |             hinge              |    top_k_categorical_accuracy     |  RMSProp   |
 |    Gelu     |    GRU    |         kl_divergence          | sparse_top_k_categorical_accuracy |    FTRL    |
 |             |           |             huber              |                                   |            |
+
+### 0.0.2.dev更新
+
+|           layers           |  application   |  losses  |
+| :------------------------: | :------------: | :------: |
+|         Embedding          | diffusion/DDPM | l2_error |
+|           Lambda           |                |          |
+|            Add             |                |          |
+|        Concatenate         |                |          |
+|            Dot             |                |          |
+|          Multiply          |                |          |
+|     LayerNormalization     |                |          |
+|   InstanceNormalization    |                |          |
+|     BatchNormalization     |                |          |
+|     GroupNormalization     |                |          |
+| LocalResponseNormalization |                |          |
+|        UpSampling2D        |                |          |
+
+
 
 
 

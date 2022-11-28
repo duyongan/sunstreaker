@@ -3,12 +3,13 @@
 # @Author  : duyongan
 # @Email   : 13261051171@163.com
 # @phone   : 13261051171
+import jax
 import functools
 import operator as op
 import jax.numpy as jnp
 from jax import random
 from sunstreaker.engine.base_layer import Layer
-from sunstreaker import activations
+from sunstreaker.layers import activations
 from jax.nn import sigmoid
 from jax.nn.initializers import glorot_normal, normal
 from functools import partial
@@ -73,82 +74,82 @@ class Dropout(Layer):
             return inputs
 
 
-class Conv2D(Layer):
-    def __init__(self, kernel_shape=(2, 2), padding="SAME", strides=(1, 1), **kwargs):
+class Embedding(Layer):
+    def __init__(self, vocabulary_size, dimension, **kwargs):
         super().__init__(**kwargs)
-        # 'VALID'
-        self.padding = padding
-        self.strides = strides
-        self.kernel_shape = kernel_shape
+        self.vocabulary_size = vocabulary_size
+        self.dimension = dimension
 
     def build(self, rng):
-        output_shape = self.input_shape
-        self.W = self.add_weight((self.input_shape[-1], self.kernel_shape), initializer=glorot_normal, rng=rng)
-        return output_shape, (self.W,)
+        self.embeddings = self.add_weight((self.vocabulary_size, self.dimension), initializer=normal)
+        return self.input_shape[:-1] + (self.dimension,), self.embeddings
 
     def call(self, params, inputs, **kwargs):
-        self.W, = params
-        out = lax.conv(jnp.transpose(inputs, [0, 3, 1, 2]),
-                       jnp.transpose(self.W, [3, 2, 0, 1]),
-                       self.strides,
-                       self.padding)
-        return out
+        self.embeddings, = params
+        return self.embeddings[inputs]
 
 
-class Pool(Layer):
-    def __init__(self, kernel_shape=(2, 2), padding="SAME", strides=(1, 1), **kwargs):
+class Lambda(Layer):
+    def __init__(self, function, **kwargs):
         super().__init__(**kwargs)
-        # 'VALID'
-        self.padding = padding
-        self.strides = strides
-        self.kernel_shape = kernel_shape
+        self.function = function
 
-    def pool(self, inputs, init, reduce_fn):
-        strides = self.strides or (1,) * len(self.kernel_shape)
-        strides = (1,) + strides + (1,)
-        dims = (1,) + self.kernel_shape + (1,)
+    def build(self, rng):
+        ...
 
-        is_single_input = False
-        if inputs.ndim == len(dims) - 1:
-            inputs = inputs[None]
-            is_single_input = True
+    def call(self, params, inputs, **kwargs):
+        return self.function(inputs)
 
-        y = lax.reduce_window(inputs, init, reduce_fn, dims, strides, self.padding)
-        if is_single_input:
-            y = jnp.squeeze(y, axis=0)
+
+class Add(Layer):
+    def __init__(self, function, **kwargs):
+        super().__init__(**kwargs)
+        self.function = function
+
+    def build(self, rng):
+        ...
+
+    def call(self, params, inputs, **kwargs):
+        return jnp.sum(inputs, axis=-1)
+
+
+class Concatenate(Layer):
+    def __init__(self, function, **kwargs):
+        super().__init__(**kwargs)
+        self.function = function
+
+    def build(self, rng):
+        ...
+
+    def call(self, params, inputs, **kwargs):
+        return jnp.concatenate(inputs, axis=-1)
+
+
+class Dot(Layer):
+    def __init__(self, normalize=False, **kwargs):
+        super().__init__(**kwargs)
+        self.normalize = normalize
+
+    def build(self, rng):
+        return self.input_shape[0][:-1] + self.input_shape[0][-1:], ()
+
+    def call(self, params, inputs, **kwargs):
+        assert len(inputs) == 2, "Dot输入只能是两个"
+        x1 = inputs[0]
+        x2 = inputs[1]
+        y = jnp.dot(x1, x2)
         return y
 
 
-class MaxPool2D(Pool):
-    def __init__(self, rate, **kwargs):
-        super().__init__(**kwargs)
-        self.rate = rate
-
+class Multiply(Layer):
     def build(self, rng):
         return self.input_shape, ()
 
     def call(self, params, inputs, **kwargs):
-        y = self.pool(inputs, -jnp.inf, lax.max)
-        return y
-
-
-class AvgPool2D(Pool):
-    def __init__(self, count_include_pad=True, **kwargs):
-        super().__init__(**kwargs)
-        self.count_include_pad = count_include_pad
-
-    def build(self, rng):
-        return self.input_shape, ()
-
-    def call(self, params, inputs, **kwargs):
-        y = self.pool(inputs, 0., lax.add)
-        if self.count_include_pad:
-            y = y / jnp.prod(self.kernel_shape)
-        else:
-            div_shape = inputs.shape[:-1] + (1,)
-            if len(div_shape) - 2 == len(self.kernel_shape):
-                div_shape = (1,) + div_shape[1:]
-            y = y / self.pool(jnp.ones(div_shape), 0., lax.add)
+        assert len(inputs) == 2, "Multiply输入只能是两个"
+        x1 = inputs[0]
+        x2 = inputs[1]
+        y = x1 * x2
         return y
 
 
@@ -202,3 +203,51 @@ class GRU(Layer):
         f = partial(self.cell, params)
         _, h_new = lax.scan(f, h, inputs)
         return h_new
+
+
+class Conv2D(Layer):
+    def __init__(self, kernel_shape=(2, 2), padding_to_same=False, strides=(1, 1), activation=None, use_bias=True, initializer=normal, **kwargs):
+        super().__init__(**kwargs)
+        self.padding = "SAME" if padding_to_same else 'VALID'
+        self.strides = strides
+        self.use_bias = use_bias
+        self.activation = activations.get(activation)()
+        self.kernel_shape = kernel_shape
+        self.initializer = initializer
+
+    def build(self, rng):
+        k1, k2 = random.split(rng)
+        output_shape = self.input_shape
+        self.kernel = self.add_weight((self.input_shape[-1], self.kernel_shape), initializer=glorot_normal, rng=k1)
+        if self.use_bias:
+            self.bias = self.add_weight((self.kernel,), initializer=self.initializer, rng=k2)
+            return output_shape, (self.kernel, self.bias)
+        else:
+            return output_shape, (self.kernel,)
+
+    def call(self, params, inputs, **kwargs):
+        if self.use_bias:
+            self.kernel, self.bias = params
+        else:
+            self.kernel, = params
+        outputs = lax.conv(jnp.transpose(inputs, [0, 3, 1, 2]),
+                           jnp.transpose(self.kernel, [3, 2, 0, 1]),
+                           self.strides,
+                           self.padding)
+        if self.use_bias:
+            outputs = outputs + self.bias
+        return outputs
+
+
+class UpSampling2D(Layer):
+    def __init__(self, interpolation='bilinear', times=2, **kwargs):
+        super().__init__(**kwargs)
+        self.interpolation = interpolation
+        self.times = times
+
+    def build(self, rng):
+        return self.input_shape, ()
+
+    def call(self, params, inputs, **kwargs):
+        B, H, W, C = inputs.shape
+        return jax.image.resize(inputs, shape=(B, H * self.times, W * self.times, C), method=self.interpolation)

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-__version__ = "0.0.1.dev.5"
+__version__ = "0.0.2.dev.1"
 
 setup(
     name='sunstreaker',

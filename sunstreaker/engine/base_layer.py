@@ -4,6 +4,7 @@
 # @Email   : 13261051171@163.com
 # @phone   : 13261051171
 from jax import random
+import jax.numpy as jnp
 from jax.nn.initializers import glorot_normal, normal, ones, zeros
 
 
@@ -16,7 +17,7 @@ class Layer:
         self.outputs = None
         self.trainable = trainable
         self.params = ()
-        self.rng = random.PRNGKey(1) if not rng else rng
+        self.rng = rng or random.PRNGKey(1)
         Layer.count += 1
 
     def __call__(self, inputs, **kwargs):
@@ -41,13 +42,13 @@ class Layer:
 
     def add_weight(self,
                    shape=None,
-                   dtype=None,
+                   dtype=jnp.float32,
                    rng=None,
                    initializer=glorot_normal,
                    regularizer=None,
                    constraint=None,
                    **kwargs):
-        rng = self.rng if rng is None else rng
+        rng = rng or self.rng
         init = initializer(dtype=dtype)
         return init(rng, shape)
 

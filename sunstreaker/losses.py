@@ -35,7 +35,7 @@ class MeanAbsoluteError(Loss):
         return mean_absolute_error(y_true, y_pred)
 
 
-class MeanSquaredLogarithmic_error(Loss):
+class MeanSquaredLogarithmicError(Loss):
     def __call__(self, y_true: jnp.ndarray, y_pred: jnp.ndarray):
         return mean_squared_logarithmic_error(y_true, y_pred)
 
@@ -59,6 +59,11 @@ class Huber(Loss):
         return huber(y_true, y_pred, self.delta)
 
 
+class L2Error(Loss):
+    def __call__(self, y_true: jnp.ndarray, y_pred: jnp.ndarray):
+        return l2_error(y_true, y_pred)
+
+
 def huber(y_true: jnp.ndarray, y_pred: jnp.ndarray, delta=1.0) -> jnp.ndarray:
     x = y_true - y_pred
     loss = jnp.where(x > delta, delta * jnp.abs(x) - 0.5 * jnp.square(delta), 0.5 * jnp.square(x))
@@ -74,11 +79,11 @@ def categorical_crossentropy(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.nd
 
 
 def mean_squared_error(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.sum(jnp.square(y_pred - y_true), axis=-1)
+    return -jnp.mean(jnp.square(y_pred - y_true), axis=-1)
 
 
 def mean_absolute_error(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.sum(jnp.absolute(y_pred - y_true), axis=-1)
+    return -jnp.mean(jnp.absolute(y_pred - y_true), axis=-1)
 
 
 def mean_squared_logarithmic_error(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
@@ -91,3 +96,7 @@ def hinge(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
 
 def kl_divergence(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
     return -jnp.sum(y_true * jnp.log(y_true / y_pred), axis=-1)
+
+
+def l2_error(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
+    return -jnp.sum(jnp.square(y_pred - y_true), axis=-1)
