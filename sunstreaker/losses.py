@@ -67,36 +67,36 @@ class L2Error(Loss):
 def huber(y_true: jnp.ndarray, y_pred: jnp.ndarray, delta=1.0) -> jnp.ndarray:
     x = y_true - y_pred
     loss = jnp.where(x > delta, delta * jnp.abs(x) - 0.5 * jnp.square(delta), 0.5 * jnp.square(x))
-    return -jnp.mean(loss, axis=-1)
+    return -jnp.mean(loss, axis=jnp.arange(len(y_pred.shape)))
 
 
 def binary_crossentropy(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.mean((y_true * jnp.log(y_pred) + (1 - y_true) * jnp.log(1 - y_pred)), axis=-1)
+    return -jnp.mean((y_true * jnp.log(y_pred) + (1 - y_true) * jnp.log(1 - y_pred)), axis=jnp.arange(len(y_pred.shape)))
 
 
 def categorical_crossentropy(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.mean(jnp.sum(y_pred * y_true, axis=-1))
+    return -jnp.mean(jnp.sum(y_pred * y_true, axis=jnp.arange(len(y_pred.shape))))
 
 
 def mean_squared_error(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.mean(jnp.square(y_pred - y_true), axis=-1)
+    return -jnp.mean(jnp.square(y_pred - y_true), axis=jnp.arange(len(y_pred.shape)))
 
 
 def mean_absolute_error(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.mean(jnp.absolute(y_pred - y_true), axis=-1)
+    return -jnp.mean(jnp.absolute(y_pred - y_true), axis=jnp.arange(len(y_pred.shape)))
 
 
 def mean_squared_logarithmic_error(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.sum(jnp.square(jnp.log(y_pred + 1) - jnp.log(y_true + 1)), axis=-1)
+    return -jnp.sum(jnp.square(jnp.log(y_pred + 1) - jnp.log(y_true + 1)), axis=jnp.arange(len(y_pred.shape)))
 
 
 def hinge(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.mean(jnp.max(jnp.log(1 - y_pred * y_true), 0), axis=-1)
+    return -jnp.mean(jnp.max(jnp.log(1 - y_pred * y_true), 0), axis=jnp.arange(len(y_pred.shape)))
 
 
 def kl_divergence(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.sum(y_true * jnp.log(y_true / y_pred), axis=-1)
+    return -jnp.sum(y_true * jnp.log(y_true / y_pred), axis=jnp.arange(len(y_pred.shape)))
 
 
 def l2_error(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    return -jnp.sum(jnp.square(y_pred - y_true), axis=-1)
+    return -jnp.sum(jnp.square(y_pred - y_true), axis=jnp.arange(len(y_pred.shape)))
