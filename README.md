@@ -246,20 +246,39 @@ model.plot_accuracy()
 
 ### 0.0.2.dev更新
 
-|           layers           |  application   |  losses  |
-| :------------------------: | :------------: | :------: |
-|         Embedding          | diffusion/DDPM | l2_error |
-|           Lambda           |                |          |
-|            Add             |                |          |
-|        Concatenate         |                |          |
-|            Dot             |                |          |
-|          Multiply          |                |          |
-|     LayerNormalization     |                |          |
-|   InstanceNormalization    |                |          |
-|     BatchNormalization     |                |          |
-|     GroupNormalization     |                |          |
-| LocalResponseNormalization |                |          |
-|        UpSampling2D        |                |          |
+|           layers           |  losses  |
+| :------------------------: | :------: |
+|         Embedding          | l2_error |
+|           Lambda           |          |
+|            Add             |          |
+|        Concatenate         |          |
+|            Dot             |          |
+|          Multiply          |          |
+|     LayerNormalization     |          |
+|   InstanceNormalization    |          |
+|     BatchNormalization     |          |
+|     GroupNormalization     |          |
+| LocalResponseNormalization |          |
+|        UpSampling2D        |          |
+
+### 0.0.3.dev更新
+
+|   initializer   |  application   |
+| :-------------: | :------------: |
+|      Zeros      | diffusion/DDPM |
+|      Ones       |                |
+|    Constant     |                |
+|  RandomNormal   |                |
+| TruncatedNormal |                |
+| VarianceScaling |                |
+|   Orthogonal    |                |
+|    Identity     |                |
+|  lecun_uniform  |                |
+|  glorot_normal  |                |
+| glorot_uniform  |                |
+|  lecun_normal   |                |
+|    he_normal    |                |
+|   he_uniform    |                |
 
 
 

@@ -9,7 +9,7 @@ import operator as op
 import jax.numpy as jnp
 from jax import random
 from sunstreaker.engine.base_layer import Layer
-from sunstreaker.layers import activations
+from sunstreaker import activations
 from jax.nn import sigmoid
 from jax.nn.initializers import glorot_normal, normal
 from functools import partial

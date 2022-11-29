@@ -40,17 +40,3 @@ class AveragePooling2D(Pool):
 
     def call(self, params, inputs, **kwargs):
         return self.pool(inputs, 0., lax.add) / self.dividend
-
-
-if __name__ == '__main__':
-    from jax import random
-
-    input_shape = (1, 3, 4, 2)
-    rng = random.PRNGKey(1)
-    a = random.normal(rng, input_shape)
-    # inputs = Input(input_shape)
-    # maxPool2D = MaxPool2D(inputs)
-    # print(maxPool2D(a))
-    jnp.einsum('bhwc->bchw', a)
-    y = lax.reduce_window(a, 0., lax.max, (1, 2, 2, 1), (1, 1, 1, 1), "SAME")
-    print(y)

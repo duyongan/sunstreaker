@@ -5,5 +5,4 @@
 # @phone   : 13261051171
 from sunstreaker.layers.core import *
 from sunstreaker.layers.normalization import *
-from sunstreaker.layers.activations import *
 from sunstreaker.layers.pooling import *

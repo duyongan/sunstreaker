@@ -25,9 +25,7 @@ def get(identifier):
     elif callable(identifier):
         return identifier
     else:
-        raise TypeError(
-            f"Could not interpret activation function identifier: {identifier}"
-        )
+        raise TypeError(f"没有这种激活函数: {identifier}")
 
 
 class Activation(Layer):
@@ -83,7 +81,6 @@ class Leakyrelu(LeakyRelu):
 class Gelu(Activation):
     def func(self, x, approximate=True, **kwargs):
         x = x.astype(dtypes.to_inexact_dtype(x.dtype))
-
         if approximate:
             sqrt_2_over_pi = np.sqrt(2 / np.pi).astype(x.dtype)
             cdf = 0.5 * (1.0 + jnp.tanh(sqrt_2_over_pi * (x + 0.044715 * (x ** 3))))
