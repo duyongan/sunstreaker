@@ -9,15 +9,15 @@ from sunstreaker.engine.base_layer import Layer
 
 
 class Normalization(Layer):
-    def __init__(self, axis, momentum=0.99, epsilon=1e-3, trainable=False, **kwargs):
+    def __init__(self, axis, momentum=0.99, epsilon=1e-3, learn_parameter=False, **kwargs):
         super().__init__(**kwargs)
         self.axis = axis
         self.momentum = momentum
         self.epsilon = epsilon
-        self.trainable = trainable
+        self.learn_parameter = learn_parameter
 
     def build(self, rng):
-        if self.trainable:
+        if self.learn_parameter:
             self.gamma = self.add_weight(shape=self.input_shape)
             self.beta = self.add_weight(shape=self.input_shape)
             return self.input_shape, (self.gamma, self.beta)
@@ -26,12 +26,12 @@ class Normalization(Layer):
     def call(self, params, inputs, **kwargs):
         mean = jnp.mean(inputs, axis=self.axis, keepdims=True)
         variance = jnp.var(inputs, axis=self.axis, keepdims=True)
-        if self.trainable:
+        if self.trainable and self.learn_parameter:
             self.gamma, self.beta = params
             mean = self.momentum * mean + (1 - self.momentum) * mean
             variance = self.momentum * variance + (1 - self.momentum) * variance
         outputs = (inputs - mean) / (jnp.sqrt(variance) + self.epsilon)
-        if self.trainable:
+        if not self.trainable and self.learn_parameter:
             outputs = self.gamma * outputs + self.beta
         return outputs
 
@@ -43,17 +43,17 @@ class BatchNormalization(Normalization):
 
 class LayerNormalization(Normalization):
     def __init__(self, **kwargs):
-        super().__init__(axis=self.input_shape[1:], **kwargs)
+        super().__init__(axis=(1, 2, 3), **kwargs)
 
 
 class InstanceNormalization(Normalization):
     def __init__(self, **kwargs):
-        super().__init__(axis=self.input_shape[2:], **kwargs)
+        super().__init__(axis=(2, 3), **kwargs)
 
 
 class GroupNormalization(Normalization):
     def __init__(self, num_groups, **kwargs):
-        super().__init__(axis=self.input_shape[2:], **kwargs)
+        super().__init__(axis=(2, 3, 4), **kwargs)
         self.num_groups = num_groups
         assert self.input_shape[2] % self.num_groups == 0, "通道数必须整除组数"
 
@@ -65,11 +65,10 @@ class GroupNormalization(Normalization):
 
 
 class LocalResponseNormalization(Layer):
-    def __init__(self, num_groups=5, k=2, n=5, alpha=10 - 4, beta=0.75, **kwargs):
+    def __init__(self, group_size=5, k=2, alpha=1e-4, beta=0.75, **kwargs):
         super().__init__(**kwargs)
-        self.num_groups = num_groups
+        self.n = group_size
         self.k = k
-        self.n = n
         self.alpha = alpha
         self.beta = beta
 
@@ -77,12 +76,13 @@ class LocalResponseNormalization(Layer):
         return self.input_shape, ()
 
     def call(self, params, inputs, **kwargs):
-        y = lax.reduce_window(inputs, 0., lax.add, (1, 1, 1, self.num_groups), (1, 1, 1, 1), "VALID") / self.num_groups
-        prefix = jnp.tile(y[:1], (self.num_groups // 2,) + (1,) * len(self.input_shape))
+        y = lax.reduce_window(inputs, 0., lax.add, (1, 1, 1, self.n), (1, 1, 1, 1), "VALID") / self.n
+        prefix = jnp.tile(y[:1], (self.n // 2,) + (1,) * len(self.input_shape))
         y = jnp.concatenate([prefix, y])
         if y.shape[-1] < inputs.shape[-1]:
-            suffix = jnp.flip(y[:, :, :, -self.num_groups], axis=-1)
-            suffix = jnp.flip(jnp.cumsum(suffix, axis=-1), axis=-1)
+            suffix = jnp.flip(y[:, :, :, -self.n], axis=-1)
+            d = jnp.arange(self.n)[None, None, None, :] + 1
+            suffix = jnp.flip(jnp.cumsum(suffix, axis=-1) / d, axis=-1)
             y = jnp.concatenate([y, suffix])[:, :, :, :inputs.shape[-1]]
         y = inputs / jnp.power(self.k + self.alpha * jnp.square(y), self.beta)
         return y
