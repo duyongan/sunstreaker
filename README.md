@@ -263,24 +263,33 @@ model.plot_accuracy()
 
 ### 0.0.3.dev更新
 
-|   initializer   |  application   |
-| :-------------: | :------------: |
-|      Zeros      | diffusion/DDPM |
-|      Ones       |                |
-|    Constant     |                |
-|  RandomNormal   |                |
-| TruncatedNormal |                |
-| VarianceScaling |                |
-|   Orthogonal    |                |
-|    Identity     |                |
-|  lecun_uniform  |                |
-|  glorot_normal  |                |
-| glorot_uniform  |                |
-|  lecun_normal   |                |
-|    he_normal    |                |
-|   he_uniform    |                |
+|   initializer    | activations |
+| :--------------: | :---------: |
+|      zeros       |    Swish    |
+|       ones       |             |
+|     constant     |             |
+|     uniform      |             |
+|      normal      |             |
+|    orthogonal    |             |
+| delta_orthogonal |             |
+|  lecun_uniform   |             |
+|   lecun_normal   |             |
+|  glorot_uniform  |             |
+|  glorot_normal   |             |
+|    he_normal     |             |
+|    he_uniform    |             |
+|  kaiming_normal  |             |
+| kaiming_uniform  |             |
+|  xavier_normal   |             |
+|  xavier_uniform  |             |
+|     Identity     |             |
+| VarianceScaling  |             |
 
+### 0.0.4.dev更新
 
+|  application   | optimizers |
+| :------------: | :--------: |
+| diffusion/DDPM |   AdamW    |
 
 
 
