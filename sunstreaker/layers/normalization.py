@@ -65,6 +65,10 @@ class GroupNormalization(Normalization):
 
 
 class LocalResponseNormalization(Layer):
+    """AlexNet
+    https://proceedings.neurips.cc/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf
+    """
+
     def __init__(self, group_size=5, k=2, alpha=1e-4, beta=0.75, **kwargs):
         super().__init__(**kwargs)
         self.n = group_size

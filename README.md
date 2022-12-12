@@ -233,6 +233,8 @@ model.plot_accuracy()
 
 ## 功能
 
+### 0.0.1.dev更新
+
 | activations |  layers   |             losses             |              metrics              | optimizers |
 | :---------: | :-------: | :----------------------------: | :-------------------------------: | :--------: |
 |   Linear    |   Dense   |      binary_crossentropy       |          binary_accuracy          |    SGD     |
@@ -263,27 +265,25 @@ model.plot_accuracy()
 
 ### 0.0.3.dev更新
 
-|   initializer    | activations |
-| :--------------: | :---------: |
-|      zeros       |    Swish    |
-|       ones       |             |
-|     constant     |             |
-|     uniform      |             |
-|      normal      |             |
-|    orthogonal    |             |
-| delta_orthogonal |             |
-|  lecun_uniform   |             |
-|   lecun_normal   |             |
-|  glorot_uniform  |             |
-|  glorot_normal   |             |
-|    he_normal     |             |
-|    he_uniform    |             |
-|  kaiming_normal  |             |
-| kaiming_uniform  |             |
-|  xavier_normal   |             |
-|  xavier_uniform  |             |
-|     Identity     |             |
-| VarianceScaling  |             |
+|  initializer   | activations |
+| :------------: | :---------: |
+|     zeros      |    Swish    |
+|      ones      |             |
+|    constant    |             |
+|    uniform     |             |
+|     normal     |             |
+|   orthogonal   |             |
+|  LecunUniform  |             |
+|  LecunNormal   |             |
+|  GlorotNormal  |             |
+| GlorotUniform  |             |
+|    HeNormal    |             |
+|   HeUniform    |             |
+| KaimingUniform |             |
+| KaimingNormal  |             |
+|  XavierNormal  |             |
+| XavierUniform  |             |
+|    Identity    |             |
 
 ### 0.0.4.dev更新
 

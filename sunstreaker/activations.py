@@ -74,8 +74,7 @@ class LeakyRelu(Activation):
         return jnp.where(x >= 0, x, negative_slope * x)
 
 
-class Leakyrelu(LeakyRelu):
-    ...
+Leakyrelu = LeakyRelu
 
 
 class Gelu(Activation):
@@ -88,3 +87,8 @@ class Gelu(Activation):
         else:
             sqrt_2 = np.sqrt(2).astype(x.dtype)
             return jnp.array(x * (lax.erf(x / sqrt_2) + 1) / 2, dtype=x.dtype)
+
+
+class Swish(Activation):
+    def func(self, x, **kwargs):
+        return x * lax.logistic(x)
