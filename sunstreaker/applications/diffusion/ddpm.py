@@ -4,101 +4,10 @@
 # @Email   : 13261051171@163.com
 # @phone   : 13261051171
 import numpy as np
-import jax.numpy as jnp
+from sunstreaker.initializers import VarianceScaling
 from sunstreaker.engine.input_layer import Input
 from sunstreaker.engine.functional import Model
 from sunstreaker.layers import Conv2D, Embedding, Lambda, AveragePooling2D, UpSampling2D, GroupNormalization, Add, Dense
-
-
-def _compute_fans(shape, data_format='channels_last'):
-    if len(shape) == 2:
-        fan_in = shape[0]
-        fan_out = shape[1]
-    elif len(shape) in {3, 4, 5}:
-        if data_format == 'channels_first':
-            receptive_field_size = np.prod(shape[2:])
-            fan_in = shape[1] * receptive_field_size
-            fan_out = shape[0] * receptive_field_size
-        elif data_format == 'channels_last':
-            receptive_field_size = np.prod(shape[:-2])
-            fan_in = shape[-2] * receptive_field_size
-            fan_out = shape[-1] * receptive_field_size
-        else:
-            raise ValueError('Invalid data_format: ' + data_format)
-    else:
-        fan_in = np.sqrt(np.prod(shape))
-        fan_out = np.sqrt(np.prod(shape))
-    return fan_in, fan_out
-
-
-class Initializer(object):
-    """Initializer base class: all initializers inherit from this class.
-    """
-
-    def __call__(self, shape, dtype=None):
-        raise NotImplementedError
-
-    def get_config(self):
-        return {}
-
-    @classmethod
-    def from_config(cls, config):
-        if 'dtype' in config:
-            config.pop('dtype')
-        return cls(**config)
-
-
-class VarianceScaling(Initializer):
-    def __init__(self, scale=1.0,
-                 mode='fan_in',
-                 distribution='normal',
-                 seed=None):
-        if scale <= 0.:
-            raise ValueError('`scale` must be a positive float. Got:', scale)
-        mode = mode.lower()
-        if mode not in {'fan_in', 'fan_out', 'fan_avg'}:
-            raise ValueError('Invalid `mode` argument: '
-                             'expected on of {"fan_in", "fan_out", "fan_avg"} '
-                             'but got', mode)
-        distribution = distribution.lower()
-        if distribution not in {'normal', 'uniform'}:
-            raise ValueError('Invalid `distribution` argument: '
-                             'expected one of {"normal", "uniform"} '
-                             'but got', distribution)
-        self.scale = scale
-        self.mode = mode
-        self.distribution = distribution
-        self.seed = seed
-
-    def __call__(self, shape, dtype=None):
-        fan_in, fan_out = _compute_fans(shape)
-        scale = self.scale
-        if self.mode == 'fan_in':
-            scale /= max(1., fan_in)
-        elif self.mode == 'fan_out':
-            scale /= max(1., fan_out)
-        else:
-            scale /= max(1., float(fan_in + fan_out) / 2)
-        if self.distribution == 'normal':
-            # 0.879... = scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
-            stddev = np.sqrt(scale) / .87962566103423978
-            x = K.truncated_normal(shape, 0., stddev,
-                                   dtype=dtype, seed=self.seed)
-        else:
-            limit = np.sqrt(3. * scale)
-            x = K.random_uniform(shape, -limit, limit,
-                                 dtype=dtype, seed=self.seed)
-        if self.seed is not None:
-            self.seed += 1
-        return x
-
-    def get_config(self):
-        return {
-            'scale': self.scale,
-            'mode': self.mode,
-            'distribution': self.distribution,
-            'seed': self.seed
-        }
 
 
 def dense(x, out_dim, activation=None, init_scale=1):
