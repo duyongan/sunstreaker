@@ -91,14 +91,14 @@ def top_k_categorical_accuracy(y_true: jnp.ndarray, y_pred: jnp.ndarray, topk=3)
     y_pred = jnp.argmax(y_pred, axis=-1)
     y_true = jnp.argmax(y_true, axis=-1)
     max_k_preds = jnp.argsort(y_pred, axis=-1)[:, -topk:][:, ::-1]
-    match_array = jnp.logical_or.reduce(max_k_preds == y_true, axis=-1)
-    topk_acc_score = jnp.sum(match_array) / match_array.shape[0]
+    match_array = jnp.array(max_k_preds == y_true, dtype=jnp.float32)
+    topk_acc_score = jnp.mean(jnp.sum(match_array, axis=-1) / topk)
     return topk_acc_score
 
 
 def sparse_top_k_categorical_accuracy(y_true: jnp.ndarray, y_pred: jnp.ndarray, topk=3) -> jnp.ndarray:
     y_pred = jnp.argmax(y_pred, axis=-1)
     max_k_preds = jnp.argsort(y_pred, axis=-1)[:, -topk:][:, ::-1]
-    match_array = jnp.logical_or.reduce(max_k_preds == y_true, axis=-1)
-    topk_acc_score = jnp.sum(match_array) / match_array.shape[0]
+    match_array = jnp.array(max_k_preds == y_true, dtype=jnp.float32)
+    topk_acc_score = jnp.mean(jnp.sum(match_array, axis=-1) / topk)
     return topk_acc_score
