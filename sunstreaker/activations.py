@@ -32,10 +32,10 @@ class Activation(Layer):
     def func(self, x, **kwargs):
         return NotImplementedError
 
-    def build(self, seed):
-        return self.input_shape, ()
+    def build(self):
+        return self.input_shape
 
-    def call(self, params, inputs, **kwargs):
+    def call(self, inputs, **kwargs):
         return self.func(inputs)
 
 

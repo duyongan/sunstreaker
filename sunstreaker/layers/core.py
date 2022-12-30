@@ -17,7 +17,7 @@ from jax import lax
 
 
 class Dense(Layer):
-    def __init__(self, units, activation=None, use_bias=True, kernel_initializer=GlorotUniform(), bias_initializer=Zeros(), **kwargs):
+    def __init__(self, units, activation=None, use_bias=True, kernel_initializer=GlorotUniform, bias_initializer=Zeros, **kwargs):
         super().__init__(**kwargs)
         self.use_bias = use_bias
         self.activation = activations.get(activation)()
@@ -25,12 +25,11 @@ class Dense(Layer):
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
 
-    def build(self, seed):
-        k1, k2 = random.split(seed)
+    def build(self):
         output_shape = self.input_shape[:-1] + (self.units,)
-        self.add_weight("kernel", (self.input_shape[-1], self.units), initializer=self.kernel_initializer, seed=k1)
+        self.add_weight("kernel", (self.input_shape[-1], self.units), initializer=self.kernel_initializer)
         if self.use_bias:
-            self.add_weight("bias", (self.units,), initializer=self.bias_initializer, seed=k2)
+            self.add_weight("bias", (self.units,), initializer=self.bias_initializer)
         return output_shape
 
     def call(self, inputs, **kwargs):
@@ -45,7 +44,7 @@ class Dense(Layer):
 
 
 class Flatten(Layer):
-    def build(self, seed):
+    def build(self):
         output_shape = functools.reduce(op.mul, self.input_shape, 1),
         return output_shape
 
@@ -60,7 +59,7 @@ class Dropout(Layer):
         self.rate = rate
         self.deterministic: Optional[bool] = deterministic
 
-    def build(self, seed):
+    def build(self):
         return self.input_shape
 
     def call(self, inputs, **kwargs):
@@ -93,8 +92,8 @@ class Embedding(Layer):
         self.dimension = dimension
         self.initializer = initializers.get(initializer) if isinstance(initializer, str) else initializer
 
-    def build(self, seed):
-        self.add_weight("embedding", (self.vocabulary_size, self.dimension), initializer=self.initializer(seed))
+    def build(self):
+        self.add_weight("embedding", (self.vocabulary_size, self.dimension), initializer=self.initializer)
         return self.input_shape[:-1] + (self.dimension,)
 
     def call(self, inputs, **kwargs):
@@ -127,7 +126,7 @@ class Dot(Layer):
         super().__init__(**kwargs)
         self.normalize = normalize
 
-    def build(self, seed):
+    def build(self):
         return self.input_shape[0][:-1] + self.input_shape[0][-1:]
 
     def call(self, inputs, **kwargs):
@@ -139,7 +138,7 @@ class Dot(Layer):
 
 
 class Multiply(Layer):
-    def build(self, seed):
+    def build(self):
         return self.input_shape
 
     def call(self, inputs, **kwargs):
@@ -155,7 +154,7 @@ class GRU(Layer):
         super().__init__(**kwargs)
         self.out_dim = out_dim
 
-    def build(self, seed):
+    def build(self):
         w_init = functools.partial(self.add_weight, shape=(self.input_shape[2], self.out_dim), initializer=GlorotUniform)
         u_init = functools.partial(self.add_weight, shape=(self.out_dim, self.out_dim), initializer=GlorotUniform)
         b_init = functools.partial(self.add_weight, shape=(self.out_dim,), initializer=Zeros)
@@ -184,7 +183,7 @@ class GRU(Layer):
 
 
 class Conv2D(Layer):
-    def __init__(self, kernel_shape=(2, 2), padding_to_same=False, strides=(1, 1), activation=None, use_bias=True, initializer=GlorotUniform(), **kwargs):
+    def __init__(self, kernel_shape=(2, 2), padding_to_same=False, strides=(1, 1), activation=None, use_bias=True, initializer=GlorotUniform, **kwargs):
         super().__init__(**kwargs)
         self.padding = "SAME" if padding_to_same else 'VALID'
         self.strides = strides
@@ -193,12 +192,11 @@ class Conv2D(Layer):
         self.kernel_shape = kernel_shape
         self.initializer = initializer
 
-    def build(self, seed):
-        k1, k2 = random.split(seed)
+    def build(self):
         output_shape = self.input_shape
-        self.add_weight("kernel", (self.input_shape[-1], self.kernel_shape), initializer=GlorotUniform(), seed=k1)
+        self.add_weight("kernel", (self.input_shape[-1], self.kernel_shape), initializer=GlorotUniform())
         if self.use_bias:
-            self.add_weight("bias", (self.kernel_shape,), initializer=self.initializer, seed=k2)
+            self.add_weight("bias", (self.kernel_shape,), initializer=self.initializer)
         return output_shape
 
     def call(self, inputs, **kwargs):
@@ -218,7 +216,7 @@ class UpSampling2D(Layer):
         self.interpolation = interpolation
         self.times = times
 
-    def build(self, seed):
+    def build(self):
         return self.input_shape
 
     def call(self, inputs, **kwargs):

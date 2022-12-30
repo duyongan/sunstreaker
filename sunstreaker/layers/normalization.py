@@ -16,7 +16,7 @@ class Normalization(Layer):
         self.epsilon = epsilon
         self.learn_parameter = learn_parameter
 
-    def build(self, seed):
+    def build(self):
         if self.learn_parameter:
             self.add_weight("gamma", shape=self.input_shape)
             self.add_weight("gamma", shape=self.input_shape)
@@ -76,8 +76,8 @@ class LocalResponseNormalization(Layer):
         self.alpha = alpha
         self.beta = beta
 
-    def build(self, seed):
-        return self.input_shape, ()
+    def build(self):
+        return self.input_shape
 
     def call(self, inputs, **kwargs):
         y = lax.reduce_window(inputs, 0., lax.add, (1, 1, 1, self.n), (1, 1, 1, 1), "VALID") / self.n

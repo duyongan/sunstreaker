@@ -54,7 +54,7 @@ class MultiHeadAttention(Layer):
         self.return_attention_scores = return_attention_scores
         self.kernel_initializer = initializers.get(kernel_initializer)
 
-    def build(self, seed):
+    def build(self):
         self.q_dense = Dense(units=self.key_size * self.heads,
                              use_bias=self.use_bias,
                              kernel_initializer=self.kernel_initializer

@@ -311,8 +311,7 @@ model.plot_accuracy()
            self.kernel_initializer = kernel_initializer
            self.bias_initializer = bias_initializer
    
-       def build(self, seed):
-           k1, k2 = random.split(seed)
+       def build(self):
            output_shape = self.input_shape[:-1] + (self.units,)
            self.add_weight("kernel", (self.input_shape[-1], self.units), initializer=self.kernel_initializer, seed=k1)
            if self.use_bias:
@@ -333,6 +332,8 @@ model.plot_accuracy()
    
 
 2. Model params变为有序字典，方便大模型参数加载
+
+3. build不再需要输入随机种子，由内核自动分配
 
 
 

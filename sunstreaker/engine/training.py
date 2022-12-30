@@ -216,7 +216,7 @@ class ModelBase(Layer):
         self.input_shape = {k: data[k].input_shape for k in data} if isinstance(data, Dict) else data.input_shape
         self.__dict__ = self._get_train_cls()(self.__dict__).train(data)
 
-    def build(self, rng=None):
+    def build(self):
         # input_shape = {k: data[k].input_shape for k in data} if isinstance(data, Dict) else data.input_shape
         trained_params: List[Optional[Tuple[jnp.ndarray, jnp.ndarray]]] = self._trained_params
         if len(trained_params) > 0:

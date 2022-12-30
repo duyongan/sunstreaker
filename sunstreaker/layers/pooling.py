@@ -27,7 +27,7 @@ class Pool(Layer):
 
 
 class MaxPool2D(Pool):
-    def build(self, seed):
+    def build(self):
         return self.input_shape
 
     def call(self, inputs, **kwargs):
@@ -35,7 +35,7 @@ class MaxPool2D(Pool):
 
 
 class AveragePooling2D(Pool):
-    def build(self, seed):
+    def build(self):
         return self.input_shape
 
     def call(self, inputs, **kwargs):

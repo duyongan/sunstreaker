@@ -5,22 +5,21 @@
 # @phone   : 13261051171
 
 from collections import OrderedDict
-
-from jax import random
+from jax.random import PRNGKey
 import jax.numpy as jnp
 from sunstreaker.initializers import GlorotNormal
 
 
 class Layer:
     count = 0
+    seed = 1
 
-    def __init__(self, trainable=True, name=None, seed=None, **kwargs):
+    def __init__(self, trainable=True, name=None, **kwargs):
         self._init_set_name(name)
         self.inputs = []
         self.outputs = None
         self.trainable = trainable
         self.params = OrderedDict()
-        self.seed = seed or random.PRNGKey(1)
         Layer.count += 1
 
     def __call__(self, inputs, **kwargs):
@@ -28,10 +27,10 @@ class Layer:
             inputs = [inputs]
         self.inputs = inputs
         self.input_shape = inputs[0].output_shape if isinstance(inputs, list) and len(inputs) == 1 else [_input.output_shape for _input in self.inputs]
-        self.output_shape = self.build(self.seed)
+        self.output_shape = self.build()
         return self
 
-    def build(self, seed):
+    def build(self):
         return self.input_shape
 
     def call(self, inputs, **kwargs):
@@ -48,13 +47,12 @@ class Layer:
                    name,
                    shape=None,
                    dtype=jnp.float32,
-                   seed=None,
                    initializer=GlorotNormal,
                    regularizer=None,
                    constraint=None,
                    **kwargs):
-        seed = seed or self.seed
-        init = initializer(seed=seed)
+        init = initializer(seed=PRNGKey(Layer.seed))
+        Layer.seed += 1
         self.params[self.get_name(name)] = init(shape, dtype)
         return self.params[self.get_name(name)]
 
