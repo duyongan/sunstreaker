@@ -19,8 +19,8 @@ class Input(Layer):
     def __call__(self, *args, **kwargs):
         ...
 
-    def call(self, params, inputs, **kwargs):
+    def call(self, inputs, **kwargs):
         return inputs
 
-    def build(self, rng):
-        return self.input_shape, ()
+    def build(self):
+        return self.input_shape

@@ -4,7 +4,6 @@
 # @Email   : 13261051171@163.com
 # @phone   : 13261051171
 import jax.numpy as jnp
-import numpy as np
 
 
 class Loss:

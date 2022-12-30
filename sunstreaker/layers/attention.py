@@ -4,7 +4,6 @@
 # @Email   : 13261051171@163.com
 # @phone   : 13261051171
 import jax.numpy as jnp
-from jax import random
 from sunstreaker import initializers
 from sunstreaker.layers import Dense, Embedding
 from sunstreaker.activations import Softmax
