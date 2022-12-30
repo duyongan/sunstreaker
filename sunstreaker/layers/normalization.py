@@ -16,18 +16,18 @@ class Normalization(Layer):
         self.epsilon = epsilon
         self.learn_parameter = learn_parameter
 
-    def build(self, rng):
+    def build(self, seed):
         if self.learn_parameter:
-            self.gamma = self.add_weight(shape=self.input_shape)
-            self.beta = self.add_weight(shape=self.input_shape)
-            return self.input_shape, (self.gamma, self.beta)
-        return self.input_shape, ()
+            self.add_weight("gamma", shape=self.input_shape)
+            self.add_weight("gamma", shape=self.input_shape)
+            return self.input_shape
+        return self.input_shape
 
-    def call(self, params, inputs, **kwargs):
+    def call(self, inputs, **kwargs):
         mean = jnp.mean(inputs, axis=self.axis, keepdims=True)
         variance = jnp.var(inputs, axis=self.axis, keepdims=True)
         if self.trainable and self.learn_parameter:
-            self.gamma, self.beta = params
+            self.gamma, self.beta = self.params
             mean = self.momentum * mean + (1 - self.momentum) * mean
             variance = self.momentum * variance + (1 - self.momentum) * variance
         outputs = (inputs - mean) / (jnp.sqrt(variance) + self.epsilon)
@@ -43,24 +43,24 @@ class BatchNormalization(Normalization):
 
 class LayerNormalization(Normalization):
     def __init__(self, **kwargs):
-        super().__init__(axis=(1, 2, 3), **kwargs)
+        super().__init__(axis=tuple(range(len(self.input_shape)))[1:], **kwargs)
 
 
 class InstanceNormalization(Normalization):
     def __init__(self, **kwargs):
-        super().__init__(axis=(2, 3), **kwargs)
+        super().__init__(axis=tuple(range(len(self.input_shape)))[2:], **kwargs)
 
 
 class GroupNormalization(Normalization):
     def __init__(self, num_groups, **kwargs):
-        super().__init__(axis=(2, 3, 4), **kwargs)
+        super().__init__(axis=tuple(range(len(self.input_shape)))[1:], **kwargs)
         self.num_groups = num_groups
         assert self.input_shape[2] % self.num_groups == 0, "通道数必须整除组数"
 
-    def call(self, params, inputs, **kwargs):
+    def call(self, inputs, **kwargs):
         N, C, H, W = inputs.shape
         inputs = inputs.reshape((N, self.num_groups, C // self.num_groups, H, W))
-        outputs = super().call(params, inputs, **kwargs)
+        outputs = super().call(inputs, **kwargs)
         return outputs.reshape((N, C, H, W))
 
 
@@ -76,10 +76,10 @@ class LocalResponseNormalization(Layer):
         self.alpha = alpha
         self.beta = beta
 
-    def build(self, rng):
+    def build(self, seed):
         return self.input_shape, ()
 
-    def call(self, params, inputs, **kwargs):
+    def call(self, inputs, **kwargs):
         y = lax.reduce_window(inputs, 0., lax.add, (1, 1, 1, self.n), (1, 1, 1, 1), "VALID") / self.n
         prefix = jnp.tile(y[:1], (self.n // 2,) + (1,) * len(self.input_shape))
         y = jnp.concatenate([prefix, y])

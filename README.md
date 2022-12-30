@@ -287,6 +287,57 @@ model.plot_accuracy()
 
 ### 0.0.4.dev更新
 
+|    application    |       layers       |
+| :---------------: | :----------------: |
+| transformers/bert | MultiHeadAttention |
+|                   | PositionEmbedding  |
+|                   |    FeedForward     |
+|                   |    ScaleOffset     |
+|                   |     Activation     |
+
+### 0.0.5.dev更新
+
+**内核改动**
+
+1. Layer call 函数不再需要传入params，build输出不再需要输出params，以dense为例
+
+   ```python
+   class Dense(Layer):
+       def __init__(self, units, activation=None, use_bias=True, kernel_initializer=GlorotUniform(), bias_initializer=Zeros(), **kwargs):
+           super().__init__(**kwargs)
+           self.use_bias = use_bias
+           self.activation = activations.get(activation)()
+           self.units = int(units) if not isinstance(units, int) else units
+           self.kernel_initializer = kernel_initializer
+           self.bias_initializer = bias_initializer
+   
+       def build(self, seed):
+           k1, k2 = random.split(seed)
+           output_shape = self.input_shape[:-1] + (self.units,)
+           self.add_weight("kernel", (self.input_shape[-1], self.units), initializer=self.kernel_initializer, seed=k1)
+           if self.use_bias:
+               self.add_weight("bias", (self.units,), initializer=self.bias_initializer, seed=k2)
+           return output_shape
+   
+       def call(self, inputs, **kwargs):
+           kernel = self.get_weight("kernel")
+           if self.use_bias:
+               bias = self.get_weight("bias")
+               outputs = jnp.dot(inputs, kernel) + bias
+           else:
+               outputs = jnp.dot(inputs, kernel)
+           outputs = self.activation.forward(params=None, inputs=outputs)
+           return outputs
+   ```
+
+   
+
+2. Model params变为有序字典，方便大模型参数加载
+
+
+
+### 0.0.6.dev更新
+
 |  application   | optimizers |
 | :------------: | :--------: |
 | diffusion/DDPM |   AdamW    |

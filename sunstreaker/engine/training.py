@@ -18,6 +18,7 @@ from ..engine.input_layer import Input
 from sunstreaker.data import convert_to_tensor, pad_sequences, Dataloader
 import matplotlib.pyplot as plt
 import itertools
+from collections import OrderedDict
 from functools import partial
 from tqdm import tqdm
 import jax.numpy as jnp
@@ -68,7 +69,7 @@ class Trainer:
     def step(self, i, opt_state, batch):
         params = self.optm.get_params(opt_state)
         grads = grad(self.compute_loss)(params, batch)
-        trainable = [self._layers[i].trainable for i, param in enumerate(params) for _ in param]
+        trainable = [self._layers[i].trainable for i, param in enumerate(params)]
         return self.optm.update(i, grads, opt_state, trainable)
 
     @partial(jit, static_argnums=(0,))
@@ -145,6 +146,16 @@ class ModelBase(Layer):
         self.outputs_dict = None
         self.forward_fn = self.forward
         self.initialize_fn = self.initialize_params
+        self.params_keys = OrderedDict()
+        self.params_values = ()
+
+    def iter_param(self):
+        keys, params = (), ()
+        for layer in self.params:
+            keys += tuple(self.params[layer].keys())
+            params += tuple(self.params[layer].values())
+        keys = OrderedDict([(k, i) for i, k in enumerate(keys)])
+        return keys, params
 
     def init_in_out(self):
         self._iter_layers()
@@ -211,21 +222,28 @@ class ModelBase(Layer):
         if len(trained_params) > 0:
             return [out.output_shape for out in self.outputs], trained_params
         else:
-            params = []
             for _layer in self._layers:
-                params.append(_layer.params)
-            return [out.output_shape for out in self.outputs], params
+                self.params[_layer.name] = _layer.params
+            return [out.output_shape for out in self.outputs], self.params
 
     def initialize_params(self, data: Dataloader):
         self.output_shape, self.params = self.build()
-        return self.params
+        self.params_keys, self.params_values = self.iter_param()
+        return self.params_values
 
-    def call(self, params, inputs, trainable=True, **kwargs):
+    def forward(self, params, inputs, trainable=True, **kwargs):
+        inputs = inputs[0] if isinstance(inputs, list) and len(inputs) == 1 else inputs
+        self.trainable = trainable
+        self.params = params
+        self.outputs = self.call(inputs, **kwargs)
+        return self.outputs
+
+    def call(self, inputs, trainable=True, **kwargs):
         _inputs = inputs
         outputs = {}
-        for layer, param in zip(self._layers, params):
+        for layer in self._layers:
             _inputs = [inputs[layer.name]] if isinstance(layer, Input) else [_layer.outputs for _layer in layer.inputs]
-            out = layer.forward(param, _inputs, trainable=trainable)
+            out = layer.forward(self.params[layer.name], _inputs, trainable=trainable)
             if layer.name in self.outputs_dict: outputs[layer.name] = out
         return outputs
 

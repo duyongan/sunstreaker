@@ -6,3 +6,4 @@
 from sunstreaker.layers.core import *
 from sunstreaker.layers.normalization import *
 from sunstreaker.layers.pooling import *
+from sunstreaker.layers.attention import *

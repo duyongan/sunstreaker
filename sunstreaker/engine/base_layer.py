@@ -3,21 +3,24 @@
 # @Author  : duyongan
 # @Email   : 13261051171@163.com
 # @phone   : 13261051171
+
+from collections import OrderedDict
+
 from jax import random
 import jax.numpy as jnp
-from jax.nn.initializers import glorot_normal, normal, ones, zeros
+from sunstreaker.initializers import GlorotNormal
 
 
 class Layer:
     count = 0
 
-    def __init__(self, trainable=True, name=None, rng=None, **kwargs):
+    def __init__(self, trainable=True, name=None, seed=None, **kwargs):
         self._init_set_name(name)
         self.inputs = []
         self.outputs = None
         self.trainable = trainable
-        self.params = ()
-        self.rng = rng or random.PRNGKey(1)
+        self.params = OrderedDict()
+        self.seed = seed or random.PRNGKey(1)
         Layer.count += 1
 
     def __call__(self, inputs, **kwargs):
@@ -25,37 +28,49 @@ class Layer:
             inputs = [inputs]
         self.inputs = inputs
         self.input_shape = inputs[0].output_shape if isinstance(inputs, list) and len(inputs) == 1 else [_input.output_shape for _input in self.inputs]
-        self.output_shape, self.params = self.build(self.rng)
+        self.output_shape = self.build(self.seed)
         return self
 
-    def build(self, rng):
-        return self.input_shape, ()
+    def build(self, seed):
+        return self.input_shape
 
-    def call(self, params, inputs, **kwargs):
+    def call(self, inputs, **kwargs):
         return inputs
 
     def forward(self, params, inputs, trainable=True, **kwargs):
         inputs = inputs[0] if isinstance(inputs, list) and len(inputs) == 1 else inputs
         self.trainable = trainable
-        self.outputs = self.call(params, inputs, **kwargs)
+        self.params = params
+        self.outputs = self.call(inputs, **kwargs)
         return self.outputs
 
     def add_weight(self,
+                   name,
                    shape=None,
                    dtype=jnp.float32,
-                   rng=None,
-                   initializer=glorot_normal,
+                   seed=None,
+                   initializer=GlorotNormal,
                    regularizer=None,
                    constraint=None,
                    **kwargs):
-        rng = rng or self.rng
-        init = initializer(dtype=dtype)
-        return init(rng, shape)
+        seed = seed or self.seed
+        init = initializer(seed=seed)
+        self.params[self.get_name(name)] = init(shape, dtype)
+        return self.params[self.get_name(name)]
 
     def _init_set_name(self, name):
         if name is None:
-            self.name = f"{self.__class__.__name__.lower()}_{Layer.count}"
+            cls = [cls.__name__.lower() for cls in Layer.__mro__[:-2]]
+            self.name = f"{'.'.join(list(reversed(cls)))}_{Layer.count}"
         elif isinstance(name, str):
             self.name = name
         else:
             raise TypeError("参数name不合法")
+
+    def get_name(self, weight_name):
+        return f"{self.name}.{weight_name}"
+
+    def get_weight(self, *args):
+        if len(args) == 1:
+            return self.params[self.get_name(args[0])]
+        return (self.params[self.get_name(name)] for name in args)

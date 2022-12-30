@@ -48,9 +48,9 @@ class Sequential(training.ModelBase):
     def _init_compile(self, loss):
         self._loss_fn = loss
 
-    def call(self, params, inputs, trainable=True, **kwargs):
-        for layer, param in zip(self._layers, params):
-            inputs = layer.forward(param, inputs, trainable=trainable)
+    def call(self, inputs, trainable=True, **kwargs):
+        for layer in self._layers:
+            inputs = layer.forward(self.params[layer.name], inputs, trainable=trainable)
         return inputs
 
 

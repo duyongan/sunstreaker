@@ -6,8 +6,6 @@
 import sys
 from jax import random
 import jax.numpy as jnp
-from jax import core
-from typing import Any, Sequence, Tuple, Union
 
 
 def deserialize(identifier):
@@ -166,12 +164,12 @@ class VarianceScaling(Initializer):
 
 class LecunUniform(VarianceScaling):
     def __init__(self, seed=None):
-        super().__init__(scale=1.0, mode="fan_in", distribution="truncated_normal", seed=seed)
+        super().__init__(scale=1.0, mode="fan_in", distribution="uniform", seed=seed)
 
 
 class LecunNormal(VarianceScaling):
     def __init__(self, seed=None):
-        super().__init__(scale=1.0, mode="fan_in", distribution="uniform", seed=seed)
+        super().__init__(scale=1.0, mode="fan_in", distribution="truncated_normal", seed=seed)
 
 
 class HeNormal(VarianceScaling):
