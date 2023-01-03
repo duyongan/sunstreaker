@@ -53,12 +53,12 @@ class Layer:
                    **kwargs):
         init = initializer(seed=PRNGKey(Layer.seed))
         Layer.seed += 1
-        self.params[self.get_name(name)] = init(shape, dtype)
+        self.params[self.get_name(name)] = init(shape=shape, dtype=dtype)
         return self.params[self.get_name(name)]
 
     def _init_set_name(self, name):
         if name is None:
-            cls = [cls.__name__.lower() for cls in Layer.__mro__[:-2]]
+            cls = [cls.__name__.lower() for cls in Layer.__mro__[:-1]]
             self.name = f"{'.'.join(list(reversed(cls)))}_{Layer.count}"
         elif isinstance(name, str):
             self.name = name

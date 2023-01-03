@@ -3,6 +3,7 @@
 # @Author  : duyongan
 # @Email   : 13261051171@163.com
 # @phone   : 13261051171
+from collections import OrderedDict
 from .base_layer import Layer
 
 
@@ -11,7 +12,7 @@ class Input(Layer):
         super().__init__(**kwargs)
         self.input_shape = input_shape  # tuple 不包括batch size
         self.output_shape = self.input_shape
-        self.params = ()
+        self.params = OrderedDict()
         self.inputs = []
         self.outputs = None
         self.rng = None

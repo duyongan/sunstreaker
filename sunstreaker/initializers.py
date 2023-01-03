@@ -24,6 +24,9 @@ def get(identifier):
 
 
 class Initializer:
+    def __init__(self, *args, **kwargs):
+        ...
+
     def __call__(self, shape, dtype=jnp.float32):
         raise NotImplementedError
 
@@ -39,7 +42,8 @@ class Ones(Initializer):
 
 
 class Constant(Initializer):
-    def __init__(self, value=0):
+    def __init__(self, value=0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.value = value
 
     def __call__(self, shape, dtype=jnp.float32):
@@ -47,7 +51,8 @@ class Constant(Initializer):
 
 
 class RandomNormal(Initializer):
-    def __init__(self, seed, mean=0., stddev=0.05):
+    def __init__(self, seed, mean=0., stddev=0.05, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.mu = mean
         self.sigma = stddev
         self.seed = seed
@@ -57,7 +62,8 @@ class RandomNormal(Initializer):
 
 
 class RandomUniform(Initializer):
-    def __init__(self, seed, minval=-0.05, maxval=0.05):
+    def __init__(self, seed, minval=-0.05, maxval=0.05, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.minval = minval
         self.maxval = maxval
         self.seed = seed
@@ -67,7 +73,8 @@ class RandomUniform(Initializer):
 
 
 class TruncatedNormal(Initializer):
-    def __init__(self, seed, mean=0., stddev=0.05, lower=-2, upper=2):
+    def __init__(self, seed, mean=0., stddev=0.05, lower=-2, upper=2, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.mu = mean
         self.sigma = stddev
         self.lower = lower + self.mu
@@ -81,7 +88,8 @@ class TruncatedNormal(Initializer):
 
 
 class Identity(Initializer):
-    def __init__(self, gain=1.0):
+    def __init__(self, gain=1.0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.gain = gain
 
     def __call__(self, shape, dtype=jnp.float32):
@@ -89,7 +97,8 @@ class Identity(Initializer):
 
 
 class Orthogonal(Initializer):
-    def __init__(self, seed, gain=1.0):
+    def __init__(self, seed, gain=1.0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.seed = seed
         self.gain = gain
 
@@ -112,8 +121,9 @@ class DeltaOrthogonal(Orthogonal):
 
 
 class VarianceScaling(Initializer):
-    def __init__(self, seed, scale=1.0, mode='fan_in', distribution='normal'):
-        assert scale <= 0, "scale不能小于0"
+    def __init__(self, seed, scale=1.0, mode='fan_in', distribution='normal', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert scale > 0, "scale不能小于0"
         assert mode in {'fan_in', 'fan_out', 'fan_avg'}, "没有这种模式"
         assert distribution in {'normal', 'uniform', 'truncated_normal'}, "没有这种分布"
         self.scale = scale

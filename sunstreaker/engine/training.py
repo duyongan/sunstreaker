@@ -41,7 +41,7 @@ class Trainer:
         self._loss_fn = self._loss_fn if isinstance(self._loss_fn, dict) else {k: self._loss_fn for k in self.outputs}
 
     def train(self, data: Dataloader):
-        network_params = self.initialize_params(data)
+        network_params = self.initialize_params()
         opt_state = self.optm.init(network_params)
         iter_count = itertools.count()
         progress_bar = tqdm(iterable=range(self.config.get("_epochs")),
@@ -149,14 +149,6 @@ class ModelBase(Layer):
         self.params_keys = OrderedDict()
         self.params_values = ()
 
-    def iter_param(self):
-        keys, params = (), ()
-        for layer in self.params:
-            keys += tuple(self.params[layer].keys())
-            params += tuple(self.params[layer].values())
-        keys = OrderedDict([(k, i) for i, k in enumerate(keys)])
-        return keys, params
-
     def init_in_out(self):
         self._iter_layers()
         self.outputs_dict = {_layer.name: _layer for _layer in self.outputs}
@@ -217,24 +209,27 @@ class ModelBase(Layer):
         self.__dict__ = self._get_train_cls()(self.__dict__).train(data)
 
     def build(self):
-        # input_shape = {k: data[k].input_shape for k in data} if isinstance(data, Dict) else data.input_shape
-        trained_params: List[Optional[Tuple[jnp.ndarray, jnp.ndarray]]] = self._trained_params
-        if len(trained_params) > 0:
-            return [out.output_shape for out in self.outputs], trained_params
-        else:
-            for _layer in self._layers:
-                self.params[_layer.name] = _layer.params
-            return [out.output_shape for out in self.outputs], self.params
+        self.params = OrderedDict([(_layer.name, _layer.params) for _layer in self._layers])
+        return [out.output_shape for out in self.outputs]
 
-    def initialize_params(self, data: Dataloader):
-        self.output_shape, self.params = self.build()
+    def iter_param(self):
+        keys, params = (), ()
+        for _layer in self.params:
+            keys += tuple(self.params[_layer].keys())
+            params += tuple(self.params[_layer].values())
+        keys = OrderedDict([(k, i) for i, k in enumerate(keys)])
+        return keys, params
+
+    def initialize_params(self):
+        self.output_shape = self.build()
         self.params_keys, self.params_values = self.iter_param()
         return self.params_values
 
     def forward(self, params, inputs, trainable=True, **kwargs):
         inputs = inputs[0] if isinstance(inputs, list) and len(inputs) == 1 else inputs
         self.trainable = trainable
-        self.params = params
+        self.params = params if isinstance(params, OrderedDict) else \
+            OrderedDict({k: params[i] for i, k in enumerate(self.params_keys)})
         self.outputs = self.call(inputs, **kwargs)
         return self.outputs
 
@@ -243,7 +238,7 @@ class ModelBase(Layer):
         outputs = {}
         for layer in self._layers:
             _inputs = [inputs[layer.name]] if isinstance(layer, Input) else [_layer.outputs for _layer in layer.inputs]
-            out = layer.forward(self.params[layer.name], _inputs, trainable=trainable)
+            out = layer.forward(self.params, _inputs, trainable=trainable)
             if layer.name in self.outputs_dict: outputs[layer.name] = out
         return outputs
 

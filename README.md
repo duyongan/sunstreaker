@@ -285,17 +285,8 @@ model.plot_accuracy()
 | XavierUniform  |             |
 |    Identity    |             |
 
+
 ### 0.0.4.dev更新
-
-|    application    |       layers       |
-| :---------------: | :----------------: |
-| transformers/bert | MultiHeadAttention |
-|                   | PositionEmbedding  |
-|                   |    FeedForward     |
-|                   |    ScaleOffset     |
-|                   |     Activation     |
-
-### 0.0.5.dev更新
 
 **内核改动**
 
@@ -329,12 +320,19 @@ model.plot_accuracy()
            return outputs
    ```
 
-   
-
 2. Model params变为有序字典，方便大模型参数加载
 
 3. build不再需要输入随机种子，由内核自动分配
 
+### 0.0.5.dev更新
+
+|    application    |       layers       |
+| :---------------: | :----------------: |
+| transformers/bert | MultiHeadAttention |
+|                   | PositionEmbedding  |
+|                   |    FeedForward     |
+|                   |    ScaleOffset     |
+|                   |     Activation     |
 
 
 ### 0.0.6.dev更新
@@ -342,8 +340,6 @@ model.plot_accuracy()
 |  application   | optimizers |
 | :------------: | :--------: |
 | diffusion/DDPM |   AdamW    |
-
-
 
 
 
