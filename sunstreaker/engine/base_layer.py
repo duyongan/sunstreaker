@@ -27,7 +27,11 @@ class Layer:
             inputs = [inputs]
         self.inputs = inputs
         self.input_shape = inputs[0].output_shape if isinstance(inputs, list) and len(inputs) == 1 else [_input.output_shape for _input in self.inputs]
+        source = self.__dict__.copy()
         self.output_shape = self.build()
+        dest = dict(self.__dict__.items() - source.items())
+        for k in dest:
+            self.params.update(dest[k].params)
         return self
 
     def build(self):

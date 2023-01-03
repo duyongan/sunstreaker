@@ -98,7 +98,7 @@ class BertEmbedings(Layer):
         super().__init__(**kwargs)
         self.deterministic: bool = True
 
-    def build(self, seed):
+    def build(self):
         self.word_embeddings = Embedding(
             vocabulary_size=self.config.vocab_size,
             dimension=self.config.hidden_size,
@@ -113,6 +113,7 @@ class BertEmbedings(Layer):
             initializer="", )
         self.LayerNorm = LayerNormalization(epsilon=self.config.layer_norm_eps, dtype=self.dtype)
         self.dropout = Dropout(rate=self.config.hidden_dropout_prob, deterministic=True)
+        return self.config.max_position_embeddings, self.config.hidden_size
 
     def __call__(self, inputs, **kwargs):
         input_ids, position_ids, token_type_ids = inputs
@@ -144,18 +145,18 @@ class BertPreTrainingHeads(Layer):
         if self.with_nsp and not self.with_pool:
             self.with_pool = True
 
-    def build(self, seed):
+    def build(self):
         self.dense_pool = Dense(
             self.config.hidden_size,
             kernel_init="RandomNormal",
             dtype=self.dtype,
             activation="tanh"
         )
-        self.dense = Dense(self.config.hidden_size, dtype=self.dtype, activation=self.config.hidden_act)
+        self.dense = Dense(self.config.hidden_size, dtype=self.dtype, activation=self.config.hidden_act, use_bias=False)
         self.LayerNorm = LayerNormalization(epsilon=self.config.layer_norm_eps, dtype=self.dtype)
         self.decoder = Dense(self.config.vocab_size, dtype=self.dtype, use_bias=False)
-        self.bias = self.add_weight("bias", self.bias_init, (self.config.vocab_size,))
-        self.seq_relationship = Dense(2, dtype=self.dtype)
+        self.seq_relationship = Dense(2, dtype=self.dtype, use_bias=True)
+        return ()
 
     def __call__(self, inputs, **kwargs):
         hidden_states = inputs
@@ -168,8 +169,7 @@ class BertPreTrainingHeads(Layer):
             hidden_states = self.decoder.forward({"params": {"kernel": self.shared_embedding.T}}, hidden_states)
         else:
             hidden_states = self.decoder(hidden_states)
-        bias = jnp.asarray(self.bias, self.dtype)
-        prediction_scores = hidden_states + bias
+        prediction_scores = hidden_states
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
 
@@ -178,7 +178,7 @@ class BertLayer(Layer):
     config: BertConfig
     dtype: jnp.dtype = jnp.float32
 
-    def build(self, seed):
+    def build(self):
         self.attention = MultiHeadAttention(heads=self.config.num_attention_heads,
                                             head_size=self.config.hidden_size // self.config.num_attention_heads)
         self.dropout = Dropout(rate=self.config.attention_probs_dropout_prob)
@@ -187,7 +187,7 @@ class BertLayer(Layer):
         self.feedForward = Dense(units=self.config.intermediate_size, activations="relu")
         self.add2 = Add()
         self.LayerNorm2 = LayerNormalization()
-        return self.input_shape, ()
+        return self.input_shape
 
     def __call__(self, inputs, **kwargs):
         xi = inputs
@@ -226,13 +226,13 @@ class BertLayerCollection(Layer):
         self.output_hidden_states = output_hidden_states
         self.return_dict = return_dict
 
-    def build(self, seed):
+    def build(self):
         self.layers = [BertLayer(self.config,
                                  name=str(i),
                                  dtype=self.dtype,
                                  ) for i in range(self.config.num_hidden_layers)]
 
-    def call(self, params, inputs, **kwargs):
+    def call(self, inputs, **kwargs):
         hidden_states, attention_mask, head_mask = inputs
         all_attentions = () if self.output_attentions else None
         all_hidden_states = () if self.output_hidden_states else None
@@ -240,7 +240,7 @@ class BertLayerCollection(Layer):
         for i, layer in enumerate(self.layers):
             if self.output_hidden_states:
                 all_hidden_states += (hidden_states,)
-            layer_outputs = layer.forward(params, (hidden_states, attention_mask, head_mask))
+            layer_outputs = layer.forward(self.params, (hidden_states, attention_mask, head_mask))
             hidden_states = layer_outputs[0]
             if self.output_attentions:
                 all_attentions += (layer_outputs[1],)
@@ -273,4 +273,3 @@ class BertModel(Model):
         state = {k: jnp.array(pt_state_dict[k]) for k in pt_state_dict}
 
         return state
-

@@ -5,7 +5,7 @@
 # @phone   : 13261051171
 import jax.numpy as jnp
 from sunstreaker import initializers
-from sunstreaker.layers import Dense, Embedding
+from sunstreaker.layers import Dense
 from sunstreaker.activations import Softmax
 from sunstreaker.engine.base_layer import Layer
 
@@ -70,10 +70,6 @@ class MultiHeadAttention(Layer):
                              use_bias=self.use_bias,
                              kernel_initializer=self.kernel_initializer
                              )
-        self.params.update(self.q_dense.params)
-        self.params.update(self.k_dense.params)
-        self.params.update(self.v_dense.params)
-        self.params.update(self.o_dense.params)
         return self.input_shape[0][:2] + (self.out_dim,)
 
     def call(self, inputs, mask=None, **kwargs):
