@@ -156,7 +156,7 @@ class BertPreTrainingHeads(Layer):
         self.LayerNorm = LayerNormalization(epsilon=self.config.layer_norm_eps, dtype=self.dtype)
         self.decoder = Dense(self.config.vocab_size, dtype=self.dtype, use_bias=False)
         self.seq_relationship = Dense(2, dtype=self.dtype, use_bias=True)
-        return ()
+        return [(self.config.max_position_embeddings, self.config.vocab_size), (2,)]
 
     def __call__(self, inputs, **kwargs):
         hidden_states = inputs

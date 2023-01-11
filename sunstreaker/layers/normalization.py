@@ -19,20 +19,23 @@ class Normalization(Layer):
     def build(self):
         if self.learn_parameter:
             self.add_weight("gamma", shape=self.input_shape)
-            self.add_weight("gamma", shape=self.input_shape)
+            self.add_weight("beta", shape=self.input_shape)
             return self.input_shape
         return self.input_shape
 
     def call(self, inputs, **kwargs):
         mean = jnp.mean(inputs, axis=self.axis, keepdims=True)
         variance = jnp.var(inputs, axis=self.axis, keepdims=True)
-        if self.trainable and self.learn_parameter:
-            self.gamma, self.beta = self.params
+        if not self.learn_parameter:
+            outputs = (inputs - mean) / (jnp.sqrt(variance) + self.epsilon)
+            return outputs
+        gamma, beta = self.get_weight("gamma", "beta")
+        if self.trainable:
             mean = self.momentum * mean + (1 - self.momentum) * mean
             variance = self.momentum * variance + (1 - self.momentum) * variance
         outputs = (inputs - mean) / (jnp.sqrt(variance) + self.epsilon)
-        if not self.trainable and self.learn_parameter:
-            outputs = self.gamma * outputs + self.beta
+        if not self.trainable:
+            outputs = gamma * outputs + beta
         return outputs
 
 

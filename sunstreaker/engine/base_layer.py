@@ -31,7 +31,8 @@ class Layer:
         self.output_shape = self.build()
         dest = dict(self.__dict__.items() - source.items())
         for k in dest:
-            self.params.update(dest[k].params)
+            if isinstance(dest[k], Layer):
+                self.params.update(dest[k].params)
         return self
 
     def build(self):
