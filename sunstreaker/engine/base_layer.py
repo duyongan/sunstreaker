@@ -27,12 +27,10 @@ class Layer:
             inputs = [inputs]
         self.inputs = inputs
         self.input_shape = inputs[0].output_shape if isinstance(inputs, list) and len(inputs) == 1 else [_input.output_shape for _input in self.inputs]
-        source = self.__dict__.copy()
         self.output_shape = self.build()
-        dest = dict(self.__dict__.items() - source.items())
-        for k in dest:
-            if isinstance(dest[k], Layer):
-                self.params.update(dest[k].params)
+        for k in self.__dict__:
+            if isinstance(self.__dict__[k], Layer):
+                self.params.update(self.__dict__[k].params)
         return self
 
     def build(self):
