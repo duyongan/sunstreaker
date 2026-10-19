@@ -1,21 +1,20 @@
 from setuptools import setup, find_packages
 
-__version__ = "0.0.2.dev.1"
+__version__ = "2.0.0"
 
 setup(
     name='sunstreaker',
     version=__version__,
     packages=find_packages(exclude=["examples"]),
-    python_requires=">=3.10",
+    python_requires=">=3.12",
     install_requires=[
-        "matplotlib==3.6.2",
-        "msgpack==1.0.4",
-        "networkx==2.8.8",
-        "pandas==1.5.1",
-        "dill==0.3.6",
-        "tqdm==4.64.1",
-        "numpy==1.23.4",
-        "msgpack==1.0.4"
+        "matplotlib>=3.9",
+        "msgpack>=1.0.5",
+        "networkx>=3.2",
+        "pandas>=2.2",
+        "dill>=0.3.8",
+        "tqdm>=4.66",
+        "numpy>=2.2",
     ],
     url='https://github.com/duyongan/sunstreaker',
     license='',

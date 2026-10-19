@@ -32,48 +32,48 @@
 
 
 
-### windows 
+> jax 0.12.0 需要 Python 3.12 及以上
+
+### windows
 
 1. 安装jax
-   * cpu 
+   * cpu
    ```
-   pip install jax[cpu]==0.3.14 -f https://whls.blob.core.windows.net/unstable/index.html --use-deprecated legacy-resolver
+   pip install --upgrade "jax[cpu]==0.12.0"
    ```
    * gpu
+   Windows 原生暂不提供 CUDA 版本的 jax 轮子，请使用 WSL2 或 Linux 环境安装：
    ```
-   pip install jax[cuda111]==0.3.14 -f https://whls.blob.core.windows.net/unstable/index.html --use-deprecated legacy-resolver
+   pip install --upgrade "jax[cuda12]==0.12.0"
    ```
 2. 安装Graphviz
    * [exe安装下载](http://graphviz.org/download/)
-   * pygraphviz
+   * pygraphviz（安装 Graphviz 后执行）
    ```
-    pip install --global-option=build_ext `
-                  --global-option="-IC:\Program Files\Graphviz\include" `
-                  --global-option="-LC:\Program Files\Graphviz\lib" `
-                  pygraphviz
+   pip install pygraphviz
    ```
 3. pip install -r requirements.txt
-4. pip install sunstreaker 
+4. pip install sunstreaker
 ### linux
 1. 安装jax
 
    - cpu
 
    ```
-   pip install --upgrade jax[cpu]==0.3.14
+   pip install --upgrade "jax[cpu]==0.12.0"
    ```
 
    - gpu
 
    ```
-   pip install --upgrade jax[cuda]==0.3.14 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+   pip install --upgrade "jax[cuda12]==0.12.0"
    ```
 
 2. [安装Graphviz](http://graphviz.org/download/)
 
 3. pip install -r requirements.txt
 
-4. pip install sunstreaker 
+4. pip install sunstreaker
 
 
 
@@ -341,7 +341,11 @@ model.plot_accuracy()
 | :------------: | :--------: |
 | diffusion/DDPM |   AdamW    |
 
+### 2.0.0更新
 
+* jax 升级到 0.12.0，需要 Python 3.12 及以上
+* Windows 原生支持 CPU 版 jax（CUDA 版需 WSL2 或 Linux）
+* 依赖版本更新，兼容 numpy 2.x
 
 
 ## 引用
