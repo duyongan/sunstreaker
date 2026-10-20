@@ -13,7 +13,7 @@
 - [x] 快速实验新改进想法
 - [x] 快速复现新论文
 - [ ] 快速分布式训练一个大模型
-- [ ] 快速使用开源模型权重
+- [x] 快速使用开源模型权重（Qwen3 / Qwen3-MoE）
 
 
 ## 说明
@@ -194,6 +194,45 @@ model.fit(data, epochs=10)
 model.save("tfds_mnist_v2")
 ```
 
+### 加载 Qwen3 / Qwen3-MoE 开源权重
+
+纯 JAX 实现，权重名称与 HuggingFace 保持一致，支持 Dense 与 MoE 模型、KV cache、生成与微调。
+默认从 `hf-mirror` 下载，可用 `HF_ENDPOINT` 环境变量或 `endpoint=` 参数覆盖，也可以直接传入本地目录。
+tokenizer 依赖可选的 `transformers>=4.51`。
+
+```python3
+from sunstreaker.applications.transformers.qwen3 import (
+    AutoTokenizer, Qwen3ForCausalLM, Qwen3MoeForCausalLM, apply_chat_template,
+)
+
+# MoE 模型（如 Qwen/Qwen3-30B-A3B）使用 Qwen3MoeForCausalLM
+model = Qwen3ForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+
+messages = [{"role": "user", "content": "你好，介绍一下你自己"}]
+prompt = apply_chat_template(tokenizer, messages)
+input_ids = tokenizer(prompt, return_tensors="np")["input_ids"]
+
+output_ids = model.generate(input_ids, max_new_tokens=64,
+                            temperature=0.7, top_p=0.9)
+print(tokenizer.decode(output_ids[0].tolist()))
+
+# 前向与 KV cache
+out = model(input_ids, use_cache=True)  # out["logits"], out["past_key_values"]
+
+# 导出为 HuggingFace 格式（可被 transformers 直接加载）
+model.save_pretrained("./qwen3-export")
+```
+
+微调（shifted cross-entropy + AdamW，支持梯度累积）：
+
+```python3
+from sunstreaker.applications.transformers.qwen3.train import pad_batch
+
+ids, mask = pad_batch([[1, 2, 3, 4]], pad_token_id=tokenizer.pad_token_id or 0)
+model.fit([(ids, mask)], epochs=1, lr=1e-5, grad_accum=4)
+```
+
 ### 模型结构打印
 
 ```python3
@@ -347,6 +386,15 @@ model.plot_accuracy()
 * Windows 原生支持 CPU 版 jax（CUDA 版需 WSL2 或 Linux）
 * 依赖版本更新，兼容 numpy 2.x
 
+
+### 2.1.0更新
+
+* 新增 Qwen3 / Qwen3-MoE 纯 JAX 实现（`sunstreaker.applications.transformers.qwen3`）
+* 支持从本地目录或 HuggingFace 仓库（默认 hf-mirror）加载 safetensors 权重，兼容分片与 BF16
+* 支持 Dense / MoE 前向、KV cache、temperature/top-k/top-p 生成
+* 支持 shifted cross-entropy + AdamW 微调（含 ignore_index 与梯度累积）
+* 支持 tokenizer / chat template（可选依赖 transformers）以及导出 HF 格式权重
+* 新增 `tests/qwen3` 离线单测与 HuggingFace 数值对齐测试
 
 ## 引用
 

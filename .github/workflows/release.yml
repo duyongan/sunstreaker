@@ -19,4 +19,4 @@ jobs:
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             --title "${GITHUB_REF_NAME}" \
-            --notes "jax 升级到 0.12.0（需要 Python 3.12+）；修复 README 中失效的 JAX 下载链接；依赖更新以兼容 numpy 2.x。"
+            --notes "新增 Qwen3 / Qwen3-MoE 纯 JAX 实现：支持 safetensors 权重加载（分片、BF16）、Dense/MoE 前向、KV cache、文本生成与微调，以及与 HuggingFace 的数值对齐测试。"

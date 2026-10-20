@@ -3,3 +3,7 @@
 # @Author  : duyongan
 # @Email   : 13261051171@163.com
 # @phone   : 13261051171
+
+from . import qwen3
+
+__all__ = ["qwen3"]

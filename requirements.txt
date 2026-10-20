@@ -7,3 +7,7 @@ tensorflow-datasets>=4.9
 dill>=0.3.8
 tqdm>=4.66
 numpy>=2.2
+safetensors>=0.4
+huggingface_hub>=0.24
+optax>=0.2
+ml_dtypes
