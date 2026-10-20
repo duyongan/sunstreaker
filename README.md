@@ -233,6 +233,21 @@ ids, mask = pad_batch([[1, 2, 3, 4]], pad_token_id=tokenizer.pad_token_id or 0)
 model.fit([(ids, mask)], epochs=1, lr=1e-5, grad_accum=4)
 ```
 
+LoRA 微调（冻结基础权重，只训练低秩适配器；支持 Dense 与 MoE）：
+
+```python3
+# 在 q_proj/k_proj/v_proj/o_proj/gate_proj/up_proj/down_proj 上注入适配器
+model.add_lora(rank=8, alpha=16.0)
+model.fit([(ids, mask)], epochs=1, lr=1e-4)
+
+# 推理时自动带上 LoRA 增量；也可合并进基础权重后正常导出
+output_ids = model.generate(input_ids, max_new_tokens=32)
+model.merge_lora()
+model.save_pretrained("./qwen3-lora-merged")
+```
+
+`target_modules=("q_proj",)` 可只微调指定投影层；MoE 专家适配器按专家维度分别存储、训练与合并。
+
 ### 模型结构打印
 
 ```python3
@@ -395,6 +410,14 @@ model.plot_accuracy()
 * 支持 shifted cross-entropy + AdamW 微调（含 ignore_index 与梯度累积）
 * 支持 tokenizer / chat template（可选依赖 transformers）以及导出 HF 格式权重
 * 新增 `tests/qwen3` 离线单测与 HuggingFace 数值对齐测试
+
+
+### 2.2.0更新
+
+* Qwen3 / Qwen3-MoE 支持 LoRA 微调：`model.add_lora(rank, alpha, target_modules)`
+* LoRA 训练时冻结基础权重，只更新低秩适配器；支持 Dense 与逐专家（MoE）适配器
+* `model.merge_lora()` 将增量合并回基础权重，之后可正常推理与 `save_pretrained`
+* 新增 `tests/qwen3/test_lora.py` 覆盖零初始化、训练、合并与导出往返
 
 ## 引用
 

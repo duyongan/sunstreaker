@@ -18,6 +18,8 @@ def causal_lm_loss(
     input_ids: jnp.ndarray,
     attention_mask: Optional[jnp.ndarray] = None,
     labels: Optional[jnp.ndarray] = None,
+    lora_params: Optional[Dict] = None,
+    lora_scale: Optional[float] = None,
 ) -> jnp.ndarray:
     """Next-token cross entropy with optional MoE load-balancing loss."""
     input_ids = jnp.asarray(input_ids, dtype=jnp.int32)
@@ -30,6 +32,8 @@ def causal_lm_loss(
         attention_mask=attention_mask,
         use_cache=False,
         output_router_logits=config.output_router_logits,
+        lora_params=lora_params,
+        lora_scale=lora_scale,
     )
     logits = out["logits"][:, :-1, :]
     target = labels[:, 1:]
@@ -110,13 +114,26 @@ def train_step(model, batch, opt_state, optimizer: Optional[optax.GradientTransf
     optimizer = optimizer or make_optimizer(lr, weight_decay, clip_norm)
     input_ids, attention_mask = _unpack_batch(batch)
 
-    def loss_fn(params):
-        return causal_lm_loss(model.config, params, input_ids,
-                              attention_mask=attention_mask)
+    if model.lora_params is not None:
+        def loss_fn(base, adapters):
+            return causal_lm_loss(
+                model.config, base, input_ids,
+                attention_mask=attention_mask,
+                lora_params=adapters,
+                lora_scale=model.lora_config.scale)
 
-    loss, grads = jax.value_and_grad(loss_fn)(model.params)
-    updates, opt_state = optimizer.update(grads, opt_state, model.params)
-    model.params = optax.apply_updates(model.params, updates)
+        loss, grads = jax.value_and_grad(loss_fn, argnums=1)(
+            model.params, model.lora_params)
+        updates, opt_state = optimizer.update(grads, opt_state, model.lora_params)
+        model.lora_params = optax.apply_updates(model.lora_params, updates)
+    else:
+        def loss_fn(params):
+            return causal_lm_loss(model.config, params, input_ids,
+                                  attention_mask=attention_mask)
+
+        loss, grads = jax.value_and_grad(loss_fn)(model.params)
+        updates, opt_state = optimizer.update(grads, opt_state, model.params)
+        model.params = optax.apply_updates(model.params, updates)
     metrics = {
         "loss": float(loss),
         "grad_norm": float(optax.global_norm(grads)),
@@ -136,15 +153,32 @@ def fit(model, batches: Iterable, epochs: int = 1, lr: float = 3e-4,
         raise ValueError("grad_accum 必须 >= 1")
 
     optimizer = make_optimizer(lr, weight_decay, clip_norm)
-    opt_state = optimizer.init(model.params)
-    params = model.params
+    use_lora = model.lora_params is not None
+    params = model.lora_params if use_lora else model.params
+    opt_state = optimizer.init(params)
     history: List[Dict[str, float]] = []
 
-    def loss_fn(p, input_ids, attention_mask):
-        return causal_lm_loss(model.config, p, input_ids,
-                              attention_mask=attention_mask)
+    if use_lora:
+        def loss_fn(base, adapters, input_ids, attention_mask):
+            return causal_lm_loss(
+                model.config, base, input_ids,
+                attention_mask=attention_mask,
+                lora_params=adapters,
+                lora_scale=model.lora_config.scale)
 
-    grad_fn = jax.jit(jax.value_and_grad(loss_fn))
+        grad_fn = jax.jit(jax.value_and_grad(loss_fn, argnums=1))
+
+        def compute_grads(adapters, input_ids, attention_mask):
+            return grad_fn(model.params, adapters, input_ids, attention_mask)
+    else:
+        def loss_fn(p, input_ids, attention_mask):
+            return causal_lm_loss(model.config, p, input_ids,
+                                  attention_mask=attention_mask)
+
+        grad_fn = jax.jit(jax.value_and_grad(loss_fn))
+
+        def compute_grads(p, input_ids, attention_mask):
+            return grad_fn(p, input_ids, attention_mask)
 
     @jax.jit
     def apply_grads(p, state, grads):
@@ -157,7 +191,7 @@ def fit(model, batches: Iterable, epochs: int = 1, lr: float = 3e-4,
             total_loss = 0.0
             total_grads = None
             for input_ids, attention_mask in group:
-                loss, grads = grad_fn(params, input_ids, attention_mask)
+                loss, grads = compute_grads(params, input_ids, attention_mask)
                 total_loss += float(loss)
                 if total_grads is None:
                     total_grads = grads

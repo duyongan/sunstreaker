@@ -14,6 +14,7 @@ import jax
 import jax.numpy as jnp
 
 from .config import Qwen3Config
+from .lora import LoRAConfig, LoRAParams
 from .ops import (
     apply_rotary_pos_emb,
     attention,
@@ -22,7 +23,6 @@ from .ops import (
     rms_norm,
     rope_cos_sin,
     silu,
-    swiglu,
 )
 
 Params = Dict[str, jnp.ndarray]
@@ -101,6 +101,46 @@ def init_params(config: Qwen3Config, *, dtype=jnp.float32,
 
 
 # ---------------------------------------------------------------------------
+# LoRA plumbing
+# ---------------------------------------------------------------------------
+
+def _lora_pair(lora_params: Optional[LoRAParams], name: str
+               ) -> Optional[Dict[str, jnp.ndarray]]:
+    return None if lora_params is None else lora_params.get(name)
+
+
+def _linear_lora(
+    x: jnp.ndarray,
+    weight: jnp.ndarray,
+    bias: Optional[jnp.ndarray],
+    pair: Optional[Dict[str, jnp.ndarray]],
+    scale: Optional[float],
+) -> jnp.ndarray:
+    """``x @ W + bias`` plus an optional low-rank update."""
+    out = linear(x, weight, bias)
+    if pair is not None:
+        delta = jnp.dot(jnp.dot(x, pair["A"]), pair["B"])
+        out = out + (scale * delta).astype(out.dtype)
+    return out
+
+
+def _expert_linear_lora(
+    x_sorted: jnp.ndarray,
+    weight: jnp.ndarray,
+    pair: Optional[Dict[str, jnp.ndarray]],
+    group_sizes: jnp.ndarray,
+    scale: Optional[float],
+) -> jnp.ndarray:
+    """Grouped expert matmul with an optional per-expert low-rank update."""
+    out = jax.lax.ragged_dot(x_sorted, weight, group_sizes)
+    if pair is not None:
+        projected = jax.lax.ragged_dot(x_sorted, pair["A"], group_sizes)
+        delta = jax.lax.ragged_dot(projected, pair["B"], group_sizes)
+        out = out + (scale * delta).astype(out.dtype)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Blocks
 # ---------------------------------------------------------------------------
 
@@ -113,14 +153,22 @@ def _self_attention(
     sin: jnp.ndarray,
     mask: jnp.ndarray,
     past_kv: Optional[Tuple[jnp.ndarray, jnp.ndarray]],
+    lora_params: Optional[LoRAParams] = None,
+    lora_scale: Optional[float] = None,
 ) -> Tuple[jnp.ndarray, Tuple[jnp.ndarray, jnp.ndarray]]:
     batch, seq, _ = x.shape
     head_dim = config.head_dim
     a = f"{prefix}.self_attn"
 
-    q = linear(x, params[f"{a}.q_proj.weight"], params.get(f"{a}.q_proj.bias"))
-    k = linear(x, params[f"{a}.k_proj.weight"], params.get(f"{a}.k_proj.bias"))
-    v = linear(x, params[f"{a}.v_proj.weight"], params.get(f"{a}.v_proj.bias"))
+    q = _linear_lora(
+        x, params[f"{a}.q_proj.weight"], params.get(f"{a}.q_proj.bias"),
+        _lora_pair(lora_params, f"{a}.q_proj.weight"), lora_scale)
+    k = _linear_lora(
+        x, params[f"{a}.k_proj.weight"], params.get(f"{a}.k_proj.bias"),
+        _lora_pair(lora_params, f"{a}.k_proj.weight"), lora_scale)
+    v = _linear_lora(
+        x, params[f"{a}.v_proj.weight"], params.get(f"{a}.v_proj.bias"),
+        _lora_pair(lora_params, f"{a}.v_proj.weight"), lora_scale)
 
     q = q.reshape(batch, seq, config.num_attention_heads, head_dim)
     k = k.reshape(batch, seq, config.num_key_value_heads, head_dim)
@@ -139,23 +187,33 @@ def _self_attention(
 
     scale = head_dim ** -0.5
     out = attention(q, k, v, mask, config.num_key_value_groups, scale)
-    out = linear(out, params[f"{a}.o_proj.weight"], params.get(f"{a}.o_proj.bias"))
+    out = _linear_lora(
+        out, params[f"{a}.o_proj.weight"], params.get(f"{a}.o_proj.bias"),
+        _lora_pair(lora_params, f"{a}.o_proj.weight"), lora_scale)
     return out, (k, v)
 
 
 def _dense_mlp(config: Qwen3Config, params: Params, prefix: str,
-               x: jnp.ndarray) -> jnp.ndarray:
+               x: jnp.ndarray,
+               lora_params: Optional[LoRAParams] = None,
+               lora_scale: Optional[float] = None) -> jnp.ndarray:
     m = f"{prefix}.mlp"
-    return swiglu(
-        x,
-        params[f"{m}.gate_proj.weight"],
-        params[f"{m}.up_proj.weight"],
-        params[f"{m}.down_proj.weight"],
-    )
+    gate = _linear_lora(
+        x, params[f"{m}.gate_proj.weight"], None,
+        _lora_pair(lora_params, f"{m}.gate_proj.weight"), lora_scale)
+    up = _linear_lora(
+        x, params[f"{m}.up_proj.weight"], None,
+        _lora_pair(lora_params, f"{m}.up_proj.weight"), lora_scale)
+    return _linear_lora(
+        silu(gate) * up, params[f"{m}.down_proj.weight"], None,
+        _lora_pair(lora_params, f"{m}.down_proj.weight"), lora_scale)
 
 
 def _moe_mlp(config: Qwen3Config, params: Params, prefix: str,
-             x: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+             x: jnp.ndarray,
+             lora_params: Optional[LoRAParams] = None,
+             lora_scale: Optional[float] = None
+             ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """Dropless top-k MoE using ``lax.ragged_dot`` for grouped matmuls."""
     m = f"{prefix}.mlp"
     orig_shape = x.shape
@@ -188,9 +246,18 @@ def _moe_mlp(config: Qwen3Config, params: Params, prefix: str,
     up_w = params[f"{m}.experts.up_proj.weight"]
     down_w = params[f"{m}.experts.down_proj.weight"]       # (E, I, H)
 
-    gate = jax.lax.ragged_dot(x_sorted, gate_w, group_sizes)
-    up = jax.lax.ragged_dot(x_sorted, up_w, group_sizes)
-    expert_out = jax.lax.ragged_dot(silu(gate) * up, down_w, group_sizes)
+    gate = _expert_linear_lora(
+        x_sorted, gate_w,
+        _lora_pair(lora_params, f"{m}.experts.gate_proj.weight"),
+        group_sizes, lora_scale)
+    up = _expert_linear_lora(
+        x_sorted, up_w,
+        _lora_pair(lora_params, f"{m}.experts.up_proj.weight"),
+        group_sizes, lora_scale)
+    expert_out = _expert_linear_lora(
+        silu(gate) * up, down_w,
+        _lora_pair(lora_params, f"{m}.experts.down_proj.weight"),
+        group_sizes, lora_scale)
 
     weighted = expert_out * sorted_w[:, None]
     out = jax.ops.segment_sum(weighted, sorted_token, num_segments=n_tokens)
@@ -207,23 +274,28 @@ def _decoder_layer(
     mask: jnp.ndarray,
     past_kv: Optional[Tuple[jnp.ndarray, jnp.ndarray]],
     collect_router_logits: bool,
+    lora_params: Optional[LoRAParams] = None,
+    lora_scale: Optional[float] = None,
 ) -> Tuple[jnp.ndarray, Tuple[jnp.ndarray, jnp.ndarray], Optional[jnp.ndarray]]:
     prefix = f"model.layers.{layer_idx}"
 
     residual = x
     h = rms_norm(x, params[f"{prefix}.input_layernorm.weight"], config.rms_norm_eps)
-    attn_out, new_kv = _self_attention(config, params, prefix, h, cos, sin, mask, past_kv)
+    attn_out, new_kv = _self_attention(
+        config, params, prefix, h, cos, sin, mask, past_kv,
+        lora_params, lora_scale)
     h = residual + attn_out
 
     residual = h
     h = rms_norm(h, params[f"{prefix}.post_attention_layernorm.weight"],
                  config.rms_norm_eps)
     if config.layer_is_moe(layer_idx):
-        mlp_out, router_logits = _moe_mlp(config, params, prefix, h)
+        mlp_out, router_logits = _moe_mlp(
+            config, params, prefix, h, lora_params, lora_scale)
         if not collect_router_logits:
             router_logits = None
     else:
-        mlp_out = _dense_mlp(config, params, prefix, h)
+        mlp_out = _dense_mlp(config, params, prefix, h, lora_params, lora_scale)
         router_logits = None
 
     return residual + mlp_out, new_kv, router_logits
@@ -242,11 +314,14 @@ def forward(
     past_key_values: Optional[KVCache] = None,
     use_cache: Optional[bool] = None,
     output_router_logits: Optional[bool] = None,
+    lora_params: Optional[LoRAParams] = None,
+    lora_scale: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Run the decoder and return logits, KV cache and optional router logits.
 
     ``attention_mask`` is expected to cover the whole cached sequence
     (shape ``(B, past_len + T)``).  ``position_ids`` are absolute positions.
+    ``lora_params`` adds low-rank updates to the targeted linear projections.
     """
     if use_cache is None:
         use_cache = config.use_cache
@@ -278,7 +353,8 @@ def forward(
     for i in range(config.num_hidden_layers):
         past = past_key_values[i] if past_key_values is not None else None
         h, kv, router_logits = _decoder_layer(
-            config, params, i, h, cos, sin, mask, past, output_router_logits)
+            config, params, i, h, cos, sin, mask, past,
+            output_router_logits, lora_params, lora_scale)
         new_caches.append(kv)
         if router_logits is not None:
             router_logits_list.append(
@@ -381,6 +457,37 @@ class _Qwen3CausalLMBase:
         self.config = config
         self.params = params if params is not None else init_params(
             config, dtype=dtype, rng=rng)
+        self.lora_params: Optional[LoRAParams] = None
+        self.lora_config: Optional[LoRAConfig] = None
+
+    # -- LoRA ---------------------------------------------------------------
+    def add_lora(self, rank: int = 8, alpha: float = 16.0,
+                 target_modules: Optional[Tuple[str, ...]] = None,
+                 init_std: float = 0.01,
+                 rng: Optional[jnp.ndarray] = None) -> None:
+        """Attach low-rank adapters; subsequent ``fit`` trains only these."""
+        from .lora import init_lora_params
+        self.lora_config = LoRAConfig(
+            rank=rank, alpha=alpha, init_std=init_std,
+            target_modules=(target_modules if target_modules is not None
+                            else LoRAConfig().target_modules))
+        self.lora_params = init_lora_params(
+            self.params, self.lora_config, rng=rng)
+
+    def merge_lora(self) -> None:
+        """Merge adapter weights into the base parameters and detach them."""
+        if self.lora_params is None:
+            raise ValueError("尚未调用 add_lora")
+        from .lora import merge_lora_params
+        self.params = merge_lora_params(
+            self.params, self.lora_params, self.lora_config.scale)
+        self.lora_params = None
+        self.lora_config = None
+
+    def _lora_scale(self) -> Optional[float]:
+        if self.lora_params is None or self.lora_config is None:
+            return None
+        return self.lora_config.scale
 
     # -- construction -------------------------------------------------------
     @classmethod
@@ -408,6 +515,8 @@ class _Qwen3CausalLMBase:
             past_key_values=past_key_values,
             use_cache=use_cache,
             output_router_logits=output_router_logits,
+            lora_params=self.lora_params,
+            lora_scale=self._lora_scale(),
         )
 
     # -- generation ---------------------------------------------------------
@@ -463,17 +572,24 @@ class _Qwen3CausalLMBase:
     # -- training -----------------------------------------------------------
     def loss(self, input_ids, attention_mask=None, labels=None):
         from .train import causal_lm_loss
-        return causal_lm_loss(self.config, self.params, input_ids,
-                              attention_mask=attention_mask, labels=labels)
+        return causal_lm_loss(
+            self.config, self.params, input_ids,
+            attention_mask=attention_mask, labels=labels,
+            lora_params=self.lora_params, lora_scale=self._lora_scale())
 
     def fit(self, batches, epochs: int = 1, lr: float = 3e-4,
             weight_decay: float = 0.1, grad_accum: int = 1,
             clip_norm: Optional[float] = 1.0, verbose: bool = False):
         from .train import fit
-        self.params, history = fit(
+        use_lora = self.lora_params is not None
+        updated, history = fit(
             self, batches, epochs=epochs, lr=lr,
             weight_decay=weight_decay, grad_accum=grad_accum,
             clip_norm=clip_norm, verbose=verbose)
+        if use_lora:
+            self.lora_params = updated
+        else:
+            self.params = updated
         return history
 
 

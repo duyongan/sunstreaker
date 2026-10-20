@@ -19,4 +19,4 @@ jobs:
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             --title "${GITHUB_REF_NAME}" \
-            --notes "新增 Qwen3 / Qwen3-MoE 纯 JAX 实现：支持 safetensors 权重加载（分片、BF16）、Dense/MoE 前向、KV cache、文本生成与微调，以及与 HuggingFace 的数值对齐测试。"
+            --notes "Qwen3 / Qwen3-MoE 新增 LoRA 微调：冻结基础权重、只训练低秩适配器，支持 Dense 与逐专家 MoE 适配器，可通过 merge_lora 合并后正常推理与导出。"
